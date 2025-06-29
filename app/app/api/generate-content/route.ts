@@ -12,23 +12,35 @@ async function generateContentWithWordCountValidation(
   genre: string,
   wordTarget: number,
   minimumPercentage: number = 92,
+  maximumPercentage: number = 110,
   maxRetries: number = 3
 ) {
   const minimumWordCount = Math.floor(wordTarget * (minimumPercentage / 100));
+  const maximumWordCount = Math.floor(wordTarget * (maximumPercentage / 100));
   let attempts = 0;
   let bestContent = '';
   let bestWordCount = 0;
+  let bestCompliance = 0;
   const generationAttempts: Array<{attempt: number, wordCount: number, success: boolean}> = [];
 
   while (attempts < maxRetries) {
     attempts++;
     
     try {
-      // Adjust prompt based on attempt number
+      // Adjust prompt based on attempt number and previous results
       let adjustedPrompt = prompt;
       if (attempts > 1) {
-        const shortfall = minimumWordCount - bestWordCount;
-        adjustedPrompt += `\n\nIMPORTANT: The previous attempt was ${bestWordCount} words, but we need at least ${minimumWordCount} words (${minimumPercentage}% of ${wordTarget} target). Please ensure this version is sufficiently detailed and comprehensive to meet the minimum word count requirement. Add more descriptive details, dialogue, character development, and scene-setting as needed.`;
+        const compliance = Math.round((bestWordCount / wordTarget) * 100);
+        
+        if (bestWordCount < minimumWordCount) {
+          // Content is too short
+          const shortfall = minimumWordCount - bestWordCount;
+          adjustedPrompt += `\n\nIMPORTANT: The previous attempt was ${bestWordCount} words (${compliance}% of target), but we need between ${minimumWordCount}-${maximumWordCount} words (${minimumPercentage}-${maximumPercentage}% of ${wordTarget} target). Please ensure this version is sufficiently detailed and comprehensive to meet the minimum word count requirement. Add more descriptive details, dialogue, character development, and scene-setting as needed.`;
+        } else if (bestWordCount > maximumWordCount) {
+          // Content is too long
+          const excess = bestWordCount - maximumWordCount;
+          adjustedPrompt += `\n\nIMPORTANT: The previous attempt was ${bestWordCount} words (${compliance}% of target), but we need between ${minimumWordCount}-${maximumWordCount} words (${minimumPercentage}-${maximumPercentage}% of ${wordTarget} target). Please make this version more concise and focused. Remove unnecessary details, tighten dialogue, and streamline descriptions while maintaining story quality and flow.`;
+        }
       }
 
       const response = await fetch('https://apps.abacus.ai/v1/chat/completions', {
@@ -42,7 +54,7 @@ async function generateContentWithWordCountValidation(
           messages: [
             {
               role: 'system',
-              content: `You are a bestselling author in the ${genre} genre. Write engaging, human-like content that feels authentic and compelling. Pay careful attention to word count requirements and ensure your content meets the specified minimum length while maintaining quality.`
+              content: `You are a bestselling author in the ${genre} genre. Write engaging, human-like content that feels authentic and compelling. Pay careful attention to word count requirements and ensure your content falls within the specified range (${minimumWordCount}-${maximumWordCount} words) while maintaining quality.`
             },
             {
               role: 'user',
@@ -64,7 +76,8 @@ async function generateContentWithWordCountValidation(
       }
 
       const wordCount = calculateWordCount(content);
-      const meetsRequirement = wordCount >= minimumWordCount;
+      const meetsRequirement = wordCount >= minimumWordCount && wordCount <= maximumWordCount;
+      const compliance = Math.round((wordCount / wordTarget) * 100);
       
       generationAttempts.push({
         attempt: attempts,
@@ -72,10 +85,14 @@ async function generateContentWithWordCountValidation(
         success: meetsRequirement
       });
 
-      // Always keep the best content (highest word count)
-      if (wordCount > bestWordCount) {
+      // Keep the content that's closest to the target range
+      const distanceFromTarget = Math.abs(wordCount - wordTarget);
+      const bestDistanceFromTarget = Math.abs(bestWordCount - wordTarget);
+      
+      if (wordCount > bestWordCount || (meetsRequirement && !bestCompliance) || distanceFromTarget < bestDistanceFromTarget) {
         bestContent = content;
         bestWordCount = wordCount;
+        bestCompliance = compliance;
       }
 
       // If we meet the requirement, return immediately
@@ -84,7 +101,7 @@ async function generateContentWithWordCountValidation(
           content,
           wordCount,
           meetsWordCountRequirement: true,
-          wordCountCompliance: Math.round((wordCount / wordTarget) * 100),
+          wordCountCompliance: compliance,
           generationAttempts,
           finalAttempt: attempts
         };
@@ -99,11 +116,14 @@ async function generateContentWithWordCountValidation(
   }
 
   // If we exhausted all attempts, return the best content we generated
+  const finalCompliance = Math.round((bestWordCount / wordTarget) * 100);
+  const finalMeetsRequirement = bestWordCount >= minimumWordCount && bestWordCount <= maximumWordCount;
+  
   return {
     content: bestContent,
     wordCount: bestWordCount,
-    meetsWordCountRequirement: false,
-    wordCountCompliance: Math.round((bestWordCount / wordTarget) * 100),
+    meetsWordCountRequirement: finalMeetsRequirement,
+    wordCountCompliance: finalCompliance,
     generationAttempts,
     finalAttempt: attempts
   };
@@ -160,8 +180,9 @@ Synopsis for context: ${synopsis}`;
       prompt,
       genre,
       wordTarget,
-      92, // 92% minimum requirement
-      3   // max 3 attempts
+      92,  // 92% minimum requirement
+      110, // 110% maximum requirement
+      3    // max 3 attempts
     );
     
     const { content, wordCount, meetsWordCountRequirement, wordCountCompliance, generationAttempts, finalAttempt } = result;

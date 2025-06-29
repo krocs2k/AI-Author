@@ -57,7 +57,7 @@ export function ContentCreation({
         <div className="inline-flex items-center gap-2 px-4 py-2 bg-teal-500/10 border border-teal-500/20 rounded-lg">
           <Target className="w-4 h-4 text-teal-400" />
           <span className="text-sm text-teal-300">
-            Quality Guarantee: Each chapter meets 92%+ of target word count & 94%+ humanization
+            Quality Guarantee: Each chapter meets 92%-110% of target word count & 94%+ humanization
           </span>
         </div>
       </div>
@@ -179,7 +179,7 @@ export function ContentCreation({
               {isLoading?.chapters ? (
                 <>
                   <LoadingSpinner size="sm" className="mr-2" />
-                  Generating & Validating All...
+                  Generating & Validating Range...
                 </>
               ) : (
                 'Generate All Chapters'
@@ -218,7 +218,7 @@ export function ContentCreation({
                                 variant={chapter.meetsWordCountRequirement ? "success" : "destructive"}
                                 className="flex items-center gap-1"
                               >
-                                {chapter.meetsWordCountRequirement ? '✓' : '⚠'} {chapter.wordCountCompliance}% Words
+                                {chapter.meetsWordCountRequirement ? '✓' : '⚠'} {chapter.wordCountCompliance}% (92-110% target)
                               </Badge>
                             )}
                             {chapter.finalAttempt && chapter.finalAttempt > 1 && (
@@ -250,7 +250,7 @@ export function ContentCreation({
                             {isLoading?.[`chapter-${chapterNumber}`] ? (
                               <>
                                 <LoadingSpinner size="sm" className="mr-2" />
-                                Generating & Validating...
+                                Generating & Validating Range...
                               </>
                             ) : (
                               'Generate'
