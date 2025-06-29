@@ -26,6 +26,11 @@ export interface Chapter {
   wordCount: number;
   humanizationScore: number;
   generatedAt?: Date;
+  wordTarget?: number;
+  meetsWordCountRequirement?: boolean;
+  wordCountCompliance?: number;
+  generationAttempts?: Array<{attempt: number, wordCount: number, success: boolean}>;
+  finalAttempt?: number;
 }
 
 export interface BookMetrics {

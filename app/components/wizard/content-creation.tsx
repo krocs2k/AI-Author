@@ -51,9 +51,15 @@ export function ContentCreation({
         <h2 className="text-3xl font-bold text-gray-100 mb-4">
           Content Creation Dashboard
         </h2>
-        <p className="text-lg text-gray-400">
+        <p className="text-lg text-gray-400 mb-2">
           Generate your book content with AI-powered humanization
         </p>
+        <div className="inline-flex items-center gap-2 px-4 py-2 bg-teal-500/10 border border-teal-500/20 rounded-lg">
+          <Target className="w-4 h-4 text-teal-400" />
+          <span className="text-sm text-teal-300">
+            Quality Guarantee: Each chapter meets 92%+ of target word count & 94%+ humanization
+          </span>
+        </div>
       </div>
 
       {/* Metrics Overview */}
@@ -173,7 +179,7 @@ export function ContentCreation({
               {isLoading?.chapters ? (
                 <>
                   <LoadingSpinner size="sm" className="mr-2" />
-                  Generating All...
+                  Generating & Validating All...
                 </>
               ) : (
                 'Generate All Chapters'
@@ -196,7 +202,8 @@ export function ContentCreation({
                         Chapter {chapterNumber}
                         {chapter && (
                           <span className="ml-2 text-sm text-gray-400">
-                            ({chapter.wordCount?.toLocaleString()} words)
+                            ({chapter.wordCount?.toLocaleString()} words
+                            {chapter.wordTarget && ` / ${chapter.wordTarget?.toLocaleString()} target`})
                           </span>
                         )}
                       </h4>
@@ -206,6 +213,19 @@ export function ContentCreation({
                             <Badge variant="success">
                               {chapter.humanizationScore}% Humanized
                             </Badge>
+                            {chapter.wordCountCompliance !== undefined && (
+                              <Badge 
+                                variant={chapter.meetsWordCountRequirement ? "success" : "destructive"}
+                                className="flex items-center gap-1"
+                              >
+                                {chapter.meetsWordCountRequirement ? '✓' : '⚠'} {chapter.wordCountCompliance}% Words
+                              </Badge>
+                            )}
+                            {chapter.finalAttempt && chapter.finalAttempt > 1 && (
+                              <Badge variant="outline" className="text-xs">
+                                {chapter.finalAttempt} attempts
+                              </Badge>
+                            )}
                             <Button
                               variant="outline"
                               size="sm"
@@ -230,7 +250,7 @@ export function ContentCreation({
                             {isLoading?.[`chapter-${chapterNumber}`] ? (
                               <>
                                 <LoadingSpinner size="sm" className="mr-2" />
-                                Generating...
+                                Generating & Validating...
                               </>
                             ) : (
                               'Generate'

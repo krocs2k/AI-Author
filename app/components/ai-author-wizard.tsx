@@ -256,10 +256,15 @@ export function AIAuthorWizard() {
           synopsis: session.selectedSynopsis,
           genre: session.selectedGenre,
           authorAnalysis: session.authorAnalysis,
+          wordsPerChapter: session.wordsPerChapter,
         }),
       });
       
       const content = await response.json();
+      
+      if (content.error) {
+        throw new Error(content.error);
+      }
       
       const newChapter: Chapter = {
         id: `chapter-${chapterNumber}`,
@@ -269,6 +274,11 @@ export function AIAuthorWizard() {
         wordCount: content.wordCount,
         humanizationScore: content.humanizationScore,
         generatedAt: new Date(),
+        wordTarget: content.wordTarget,
+        meetsWordCountRequirement: content.meetsWordCountRequirement,
+        wordCountCompliance: content.wordCountCompliance,
+        generationAttempts: content.generationAttempts,
+        finalAttempt: content.finalAttempt,
       };
       
       const updatedChapters = [...(session.chapters || [])];
