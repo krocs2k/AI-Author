@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Chapter, BookMetrics } from '@/lib/types';
 import { BookOpen, Download, FileText, Clock, TrendingUp, Target } from 'lucide-react';
-import { formatReadTime, formatNumber, downloadAsFile } from '@/lib/utils';
+import { formatReadTime, formatNumber, downloadAsFile, downloadBookAsPDF, downloadBookAsDocx, downloadBookAsText } from '@/lib/utils';
 
 interface ContentCreationProps {
   title?: string;

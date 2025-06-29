@@ -9,7 +9,7 @@ import { SynopsisGeneration } from './wizard/synopsis-generation';
 import { TitlePlanning } from './wizard/title-planning';
 import { ContentCreation } from './wizard/content-creation';
 import { MarketingFinalization } from './wizard/marketing-finalization';
-import { calculateReadTime, generateHumanizationScore, generateSuccessProbability, simulateAnalysisDelay, downloadAsFile } from '@/lib/utils';
+import { calculateReadTime, generateHumanizationScore, generateSuccessProbability, simulateAnalysisDelay, downloadAsFile, downloadBookAsPDF, downloadBookAsDocx, downloadBookAsText } from '@/lib/utils';
 import { BOOK_GENRES } from '@/lib/genres';
 
 const WIZARD_STEPS: WizardStep[] = [
@@ -311,21 +311,25 @@ export function AIAuthorWizard() {
     setIsLoading({});
   };
 
-  const handleDownloadBook = (format: 'pdf' | 'docx' | 'txt') => {
+  const handleDownloadBook = async (format: 'pdf' | 'docx' | 'txt') => {
     const title = session.selectedTitle || session.customTitle || 'Untitled Book';
     const forward = session.forward || '';
     const chapters = session.chapters || [];
     
-    let content = `${title}\n\n`;
-    content += `${forward}\n\n`;
-    
-    chapters.forEach(chapter => {
-      content += `Chapter ${chapter.chapterNumber}\n\n`;
-      content += `${chapter.content}\n\n`;
-    });
-    
-    const filename = `${title.replace(/[^a-zA-Z0-9]/g, '_')}.${format === 'docx' ? 'doc' : format}`;
-    downloadAsFile(content, filename, format === 'pdf' ? 'application/pdf' : 'text/plain');
+    // Use enhanced download functions based on format
+    switch (format) {
+      case 'pdf':
+        await downloadBookAsPDF(title, forward, chapters);
+        break;
+      case 'docx':
+        await downloadBookAsDocx(title, forward, chapters);
+        break;
+      case 'txt':
+        downloadBookAsText(title, forward, chapters);
+        break;
+      default:
+        downloadBookAsText(title, forward, chapters);
+    }
   };
 
   const handleContentNext = () => {
@@ -406,17 +410,17 @@ export function AIAuthorWizard() {
     }
   };
 
-  const handleDownloadAll = () => {
-    // Download book content
-    handleDownloadBook('txt');
+  const handleDownloadAll = async () => {
+    const title = session.selectedTitle || session.customTitle || 'Untitled Book';
+    const forward = session.forward || '';
+    const chapters = session.chapters || [];
     
-    // Download marketing assets
-    if (session.salesCopy) {
-      downloadAsFile(session.salesCopy, 'sales-copy.txt');
-    }
-    if (session.backCoverCopy) {
-      downloadAsFile(session.backCoverCopy, 'back-cover-copy.txt');
-    }
+    // Download complete book with marketing materials in all formats
+    await downloadBookAsPDF(title, forward, chapters, session.salesCopy, session.backCoverCopy);
+    await downloadBookAsDocx(title, forward, chapters, session.salesCopy, session.backCoverCopy);
+    downloadBookAsText(title, forward, chapters, session.salesCopy, session.backCoverCopy);
+    
+    // Download individual marketing assets
     if (session.coverPrompts) {
       const coverPromptsText = 'FRONT COVER PROMPTS:\n\n' + 
         session.coverPrompts.front?.join('\n\n') + 
