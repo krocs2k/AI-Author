@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Synopsis, GenreAnalysis, AuthorAnalysis } from '@/lib/types';
-import { RefreshCw, TrendingUp, Users, BookOpen } from 'lucide-react';
+import { RefreshCw, TrendingUp, Users, BookOpen, CheckCircle } from 'lucide-react';
 
 interface SynopsisGenerationProps {
   genreAnalysis?: GenreAnalysis;
@@ -144,20 +144,34 @@ export function SynopsisGeneration({
               {synopses?.map((synopsis) => (
                 <Card
                   key={synopsis.id}
-                  className={`cursor-pointer transition-all duration-200 hover:scale-[1.02] ${
+                  className={`cursor-pointer transition-all duration-300 hover:scale-[1.02] relative ${
                     selectedSynopsis === synopsis.id
-                      ? 'border-teal-500 bg-teal-500/5'
-                      : 'border-gray-700 hover:border-gray-600'
+                      ? 'border-teal-400 bg-teal-500/15 shadow-lg shadow-teal-500/20 ring-1 ring-teal-400/50'
+                      : 'border-gray-700 hover:border-gray-600 hover:bg-gray-800/50'
                   }`}
                   onClick={() => onSynopsisSelect(synopsis.id)}
                 >
                   <CardContent className="p-4">
                     <div className="flex justify-between items-start mb-3">
-                      <Badge variant="success" className="text-xs">
-                        {synopsis.successProbability}% Success Probability
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="success" className="text-xs">
+                          {synopsis.successProbability}% Success Probability
+                        </Badge>
+                        {selectedSynopsis === synopsis.id && (
+                          <CheckCircle className="w-4 h-4 text-teal-400 fill-teal-400/20" />
+                        )}
+                      </div>
+                      {selectedSynopsis === synopsis.id && (
+                        <div className="text-xs font-medium text-teal-400 bg-teal-500/20 px-2 py-1 rounded">
+                          SELECTED
+                        </div>
+                      )}
                     </div>
-                    <p className="text-gray-300 text-sm leading-relaxed">
+                    <p className={`text-sm leading-relaxed ${
+                      selectedSynopsis === synopsis.id 
+                        ? 'text-gray-200' 
+                        : 'text-gray-300'
+                    }`}>
                       {synopsis.content}
                     </p>
                   </CardContent>
