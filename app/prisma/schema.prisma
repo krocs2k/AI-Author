@@ -1,0 +1,72 @@
+
+generator client {
+    provider = "prisma-client-js"
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+    output = "/home/ubuntu/ai_author/app/node_modules/.prisma/client"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model BookSession {
+  id                String   @id @default(cuid())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Genre Selection
+  selectedGenre     String?
+  genreAnalysis     Json?    // MojoSauce analysis
+  authorAnalysis    Json?    // SecretSauce analysis
+  
+  // Synopsis Generation
+  customTopic       String?
+  selectedSynopsis  String?
+  synopses          Json?    // Array of generated synopses
+  
+  // Title & Planning
+  selectedTitle     String?
+  customTitle       String?
+  generatedTitles   Json?    // Array of generated titles
+  plannedChapters   Int?
+  wordsPerChapter   Int?
+  
+  // Content Creation
+  forward           String?  // Forward/intro content
+  forwardWordCount  Int?
+  chapters          Chapter[]
+  
+  // Marketing Assets
+  coverPrompts      Json?    // Front and back cover prompts
+  salesCopy         String?
+  backCoverCopy     String?
+  
+  // Metrics
+  totalWordCount    Int?     @default(0)
+  estimatedReadTime Int?     @default(0)
+  humanizationScore Float?   @default(0)
+  successProbability Float?  @default(0)
+  
+  // Progress Tracking
+  currentStep       Int      @default(1)
+  completedSteps    Json?    // Array of completed step numbers
+}
+
+model Chapter {
+  id            String      @id @default(cuid())
+  sessionId     String
+  session       BookSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  chapterNumber Int
+  title         String?
+  content       String?
+  wordCount     Int?        @default(0)
+  humanizationScore Float?  @default(0)
+  generatedAt   DateTime?
+  
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  @@unique([sessionId, chapterNumber])
+}
