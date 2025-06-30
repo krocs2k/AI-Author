@@ -15,6 +15,7 @@ interface SynopsisGenerationProps {
   authorAnalysis?: AuthorAnalysis;
   synopses?: Synopsis[];
   selectedSynopsis?: string;
+  selectedSynopsisId?: string;
   customTopic?: string;
   onTopicChange: (topic: string) => void;
   onSynopsisSelect: (synopsisId: string) => void;
@@ -28,6 +29,7 @@ export function SynopsisGeneration({
   authorAnalysis,
   synopses,
   selectedSynopsis,
+  selectedSynopsisId,
   customTopic,
   onTopicChange,
   onSynopsisSelect,
@@ -141,28 +143,50 @@ export function SynopsisGeneration({
             </div>
           ) : (
             <div className="grid gap-4 mb-6">
-              {synopses?.map((synopsis) => (
-                <Card
-                  key={synopsis.id}
-                  className={`cursor-pointer transition-all duration-200 hover:scale-105 hover:shadow-lg ${
-                    selectedSynopsis === synopsis.id
-                      ? 'border-teal-500 bg-teal-500/10'
-                      : 'border-gray-700 hover:border-gray-600'
-                  }`}
-                  onClick={() => onSynopsisSelect(synopsis.id)}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-start mb-3">
-                      <Badge variant="success" className="text-xs">
-                        {synopsis.successProbability}% Success Probability
-                      </Badge>
-                    </div>
-                    <p className="text-sm leading-relaxed text-gray-300">
-                      {synopsis.content}
+              {Array.isArray(synopses) && synopses.length > 0 ? (
+                synopses.map((synopsis) => (
+                  <Card
+                    key={synopsis.id}
+                    className={`cursor-pointer transition-all duration-200 hover:scale-105 hover:shadow-lg ${
+                      selectedSynopsisId === synopsis.id
+                        ? 'border-teal-500 bg-teal-500/10'
+                        : 'border-gray-700 hover:border-gray-600'
+                    }`}
+                    onClick={() => onSynopsisSelect(synopsis.id)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-start mb-3">
+                        <Badge variant="success" className="text-xs">
+                          {synopsis.successProbability}% Success Probability
+                        </Badge>
+                      </div>
+                      <p className="text-sm leading-relaxed text-gray-300">
+                        {synopsis.content}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <BookOpen size={48} className="mx-auto text-gray-500 mb-4" />
+                    <h3 className="text-lg font-medium text-gray-400 mb-2">
+                      No synopses available
+                    </h3>
+                    <p className="text-sm text-gray-500 mb-4">
+                      Click "Regenerate" to create new book concepts
                     </p>
-                  </CardContent>
-                </Card>
-              ))}
+                    <Button
+                      variant="outline"
+                      onClick={onRegenerateSynopses}
+                      className="flex items-center gap-2"
+                    >
+                      <RefreshCw size={16} />
+                      Generate Synopses
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

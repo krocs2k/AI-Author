@@ -99,6 +99,7 @@ export interface BookSession {
   authorAnalysis?: AuthorAnalysis;
   customTopic?: string;
   selectedSynopsis?: string;
+  selectedSynopsisId?: string;
   synopses?: Synopsis[];
   selectedTitle?: string;
   customTitle?: string;

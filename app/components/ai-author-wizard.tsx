@@ -118,6 +118,7 @@ export function AIAuthorWizard() {
     const selectedSynopsis = session.synopses?.find(s => s.id === synopsisId);
     updateSession({ 
       selectedSynopsis: selectedSynopsis?.content,
+      selectedSynopsisId: synopsisId,
     });
   };
 
@@ -135,10 +136,20 @@ export function AIAuthorWizard() {
         }),
       });
       
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const synopses = await response.json();
-      await updateSession({ synopses });
+      
+      // Ensure we always have an array
+      const validSynopses = Array.isArray(synopses) ? synopses : [];
+      
+      await updateSession({ synopses: validSynopses });
     } catch (error) {
       console.error('Synopsis generation failed:', error);
+      // Set empty array as fallback to prevent runtime errors
+      await updateSession({ synopses: [] });
     } finally {
       setIsLoading({});
     }
@@ -460,6 +471,7 @@ export function AIAuthorWizard() {
               authorAnalysis={session.authorAnalysis}
               synopses={session.synopses}
               selectedSynopsis={session.selectedSynopsis}
+              selectedSynopsisId={session.selectedSynopsisId}
               customTopic={session.customTopic}
               onTopicChange={handleTopicChange}
               onSynopsisSelect={handleSynopsisSelect}

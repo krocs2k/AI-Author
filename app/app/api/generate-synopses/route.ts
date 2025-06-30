@@ -58,21 +58,32 @@ Format as JSON array with objects containing "id", "content", and "successProbab
       const content = data.choices?.[0]?.message?.content || '{}';
       const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
       const parsed = JSON.parse(cleanContent);
-      synopses = parsed.synopses || parsed;
+      
+      // Ensure we always get an array
+      let extractedSynopses = parsed.synopses || parsed;
+      if (!Array.isArray(extractedSynopses)) {
+        // If it's an object with synopses property, try that
+        if (extractedSynopses.synopses && Array.isArray(extractedSynopses.synopses)) {
+          extractedSynopses = extractedSynopses.synopses;
+        } else {
+          // Not an array, use fallback
+          extractedSynopses = [];
+        }
+      }
+      synopses = extractedSynopses;
     } catch (parseError) {
       console.error('JSON parsing error:', parseError);
       // Fallback synopses
-      synopses = Array.from({ length: 12 }, (_, i) => ({
-        id: `synopsis-${i + 1}`,
-        content: `A compelling ${genre} story featuring complex characters facing extraordinary challenges. This narrative explores universal themes while delivering the genre's signature elements that readers love. With carefully crafted plot twists and emotional depth, this story promises to captivate audiences and deliver a satisfying reading experience.`,
-        successProbability: Math.floor(Math.random() * 8) + 88
-      }));
+      synopses = [];
+    }
+
+    // Ensure we have a valid array
+    if (!Array.isArray(synopses)) {
+      synopses = [];
     }
 
     // Ensure all synopses meet minimum probability requirement
-    const filteredSynopses = Array.isArray(synopses) 
-      ? synopses.filter(s => s?.successProbability >= 88)
-      : [];
+    const filteredSynopses = synopses.filter(s => s?.successProbability >= 88);
 
     if (filteredSynopses.length === 0) {
       // Ensure we always have at least some synopses
