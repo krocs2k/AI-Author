@@ -307,185 +307,90 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const humanizationContext = authorAnalysis ? `
-AUTHOR STYLE ANALYSIS (Apply these techniques for human-like writing):
-- Writing techniques: ${authorAnalysis.humanizationTechniques?.join(', ') || 'Natural dialogue, varied sentence structure, authentic voice'}
-- Voice elements: ${authorAnalysis.commonVoiceElements?.join(', ') || 'Personal touch, conversational tone, emotional depth'}
-- Engagement strategies: ${authorAnalysis.engagementStrategies?.join(', ') || 'Hook readers, maintain tension, create emotional connection'}
-- Apply these techniques naturally throughout your writing to achieve 94%+ humanization
-` : `
-HUMANIZATION REQUIREMENTS:
-- Use natural, conversational tone with varied sentence structure
-- Include emotional depth and authentic character voices
-- Create engaging dialogue and realistic interactions
-- Maintain reader engagement through pacing and tension
-- Achieve 94%+ humanization quality through authentic writing
-`;
+    console.log(`Starting content generation: ${type} for ${title} (${genre})`);
 
     let prompt = '';
-    let wordTarget = 0;
+    wordTarget = type === 'forward' ? 800 : (wordsPerChapter || 3500);
 
     if (type === 'forward') {
-      wordTarget = 800;
       prompt = `Write a compelling forward/introduction for a ${genre} book titled "${title}".
-
-${humanizationContext}
 
 FORWARD REQUIREMENTS:
 - Hook the reader immediately with an engaging opening
 - Set the tone and atmosphere for the entire story
 - Introduce key themes and genre elements
 - Create anticipation and excitement for what's to come
-- Use natural, engaging prose that feels authentically human
-- Include personal touches that connect with readers emotionally
-
-STRUCTURE GUIDELINES:
-- Opening hook (engaging first sentences)
-- Brief introduction to the story world or themes
-- Reader engagement and anticipation building
-- Natural conclusion that leads into the main story
+- Target approximately ${wordTarget} words
 
 STORY CONTEXT: ${synopsis}
 
-Remember: This forward sets the tone for the entire book. Make it compelling, human, and true to the ${genre} genre while meeting the exact word count requirement.`;
+Write naturally and engagingly while staying close to the target word count.`;
 
     } else if (type === 'chapter') {
-      // Use custom words per chapter if provided, otherwise default to 3500
-      wordTarget = wordsPerChapter || 3500;
-      
-      // Get surrounding chapters for context if this is a regeneration
-      let contextChapters = '';
-      let isRegeneration = false;
-      
-      if (sessionId) {
-        try {
-          const { PrismaClient } = await import('@prisma/client');
-          const prisma = new PrismaClient();
-          
-          // Fetch chapters around the current one for context
-          const existingChapters = await prisma.chapter.findMany({
-            where: { sessionId },
-            orderBy: { chapterNumber: 'asc' },
-            select: {
-              chapterNumber: true,
-              content: true,
-              wordCount: true
-            }
-          });
-          
-          if (existingChapters.length > 0) {
-            // Get previous and next chapters for context
-            const previousChapter = existingChapters.find(c => c.chapterNumber === chapterNumber - 1);
-            const nextChapter = existingChapters.find(c => c.chapterNumber === chapterNumber + 1);
-            const currentChapter = existingChapters.find(c => c.chapterNumber === chapterNumber);
-            
-            isRegeneration = !!currentChapter;
-            
-            if (previousChapter || nextChapter || currentChapter) {
-              contextChapters = '\n\nSTORY CONTINUITY CONTEXT:\n';
-              
-              if (previousChapter) {
-                const lastParagraphs = previousChapter.content?.split('\n\n').slice(-2).join('\n\n') || '';
-                contextChapters += `\nPREVIOUS CHAPTER ${previousChapter.chapterNumber} ENDING:\n"${lastParagraphs.substring(0, 500)}..."\n`;
-              }
-              
-              if (currentChapter) {
-                contextChapters += `\nREGENERATION NOTICE: This is a regeneration of Chapter ${chapterNumber}. Create fresh, improved content while maintaining story consistency.\n`;
-              }
-              
-              if (nextChapter) {
-                const firstParagraphs = nextChapter.content?.split('\n\n').slice(0, 2).join('\n\n') || '';
-                contextChapters += `\nNEXT CHAPTER ${nextChapter.chapterNumber} BEGINNING:\n"${firstParagraphs.substring(0, 500)}..."\n`;
-                contextChapters += `\nIMPORTANT: Ensure this chapter transitions smoothly into the next chapter.\n`;
-              }
-            }
-          }
-          
-          await prisma.$disconnect();
-        } catch (dbError) {
-          console.error('Error fetching context chapters:', dbError);
-          // Continue without context if DB query fails
-        }
-      }
-      
       prompt = `Write Chapter ${chapterNumber} for a ${genre} book titled "${title}".
 
-${humanizationContext}
+CRITICAL WORD COUNT REQUIREMENT: 
+You MUST write approximately ${wordTarget} words (target range: ${Math.floor(wordTarget * 0.92)} - ${Math.floor(wordTarget * 1.1)} words). This is a strict requirement.
 
 CHAPTER REQUIREMENTS:
 - Create engaging, plot-advancing content for Chapter ${chapterNumber}
 - Include compelling dialogue and vivid descriptions
 - Develop characters and advance the main storyline
-- Maintain tension and reader engagement throughout
-- Use natural, human-like writing with emotional depth
-- End with an engaging hook or transition${isRegeneration ? ' (REGENERATION: Create fresh content while maintaining story consistency)' : ''}
+- Use rich descriptive passages, detailed character interactions, and immersive scene-setting
+- Include internal thoughts, sensory details, and atmospheric descriptions
+- Expand scenes with meaningful dialogue and character development
+- End with an engaging hook or transition
 
-STRUCTURE GUIDELINES:
-- Opening that connects to previous events or sets new scene
-- Character development and meaningful interactions
-- Plot advancement with clear story progression
-- Rich descriptions and authentic dialogue
-- Engaging conclusion with forward momentum
+WRITING STRATEGY TO REACH ${wordTarget} WORDS:
+- Write detailed scene descriptions and character actions
+- Include substantial dialogue between characters
+- Add character thoughts and emotional reactions
+- Describe settings, atmosphere, and sensory details thoroughly
+- Develop plot points with proper pacing and detail
+- Use transitional scenes to build narrative flow
 
-STORY CONTEXT: ${synopsis}${contextChapters}
+STORY CONTEXT: ${synopsis}
 
-Remember: This chapter must advance the story meaningfully while meeting exact word count requirements and maintaining 94%+ humanization quality.`;
+Remember: You must write close to ${wordTarget} words while maintaining quality and engagement. Plan your content to naturally reach this length through rich storytelling.`;
     }
 
-    // Generate content with enhanced word count validation
-    const result = await generateContentWithWordCountValidation(
+    console.log(`Calling RouteLLM for content generation...`);
+
+    // Simplified content generation with RouteLLM
+    const response = await routeLLMClient.generateWithSystem(
+      `You are a bestselling author in the ${genre} genre. Write engaging, human-like content that feels authentic and compelling.`,
       prompt,
-      genre,
-      wordTarget,
-      92,  // 92% minimum requirement
-      110, // 110% maximum requirement
-      3    // max 3 attempts
+      'content-creation',
+      {
+        temperature: 0.7,
+        maxTokens: Math.max(4000, Math.ceil(wordTarget * 1.5))
+      }
     );
+
+    const content = response.content || '';
     
-    const { 
-      content, 
-      wordCount, 
-      meetsWordCountRequirement, 
-      wordCountCompliance,
-      wordCountStatus,
-      wordCountMessage,
-      wordCountRange,
-      generationAttempts, 
-      finalAttempt,
-      validationDetails,
-      warning
-    } = result;
-
-    // Calculate additional metrics
-    const readTime = Math.ceil(wordCount / 250); // 250 words per minute
-    const humanizationScore = 94 + Math.floor(Math.random() * 5); // 94-98%
-
-    // Log word count validation results for monitoring
-    if (!meetsWordCountRequirement) {
-      console.warn(`Word count validation warning for ${type}:`, {
-        target: wordTarget,
-        actual: wordCount,
-        compliance: wordCountCompliance,
-        status: wordCountStatus,
-        attempts: finalAttempt,
-        warning
-      });
-    } else {
-      console.log(`Word count validation successful for ${type}:`, {
-        target: wordTarget,
-        actual: wordCount,
-        compliance: wordCountCompliance,
-        status: wordCountStatus,
-        attempts: finalAttempt
-      });
+    if (!content.trim()) {
+      throw new Error('No content generated');
     }
 
-    // Save to database if it's a chapter (with enhanced validation data)
+    console.log(`Content generated successfully using ${response.model}`);
+
+    // Calculate word count
+    const wordCount = calculateWordCount(content);
+    const validation = validateWordCount(wordCount, wordTarget, 92, 110);
+    
+    // Calculate additional metrics
+    const readTime = Math.ceil(wordCount / 250);
+    const humanizationScore = 94 + Math.floor(Math.random() * 5);
+
+    console.log(`Word count: ${wordCount}/${wordTarget} (${validation.compliance}%)`);
+
+    // Save to database if it's a chapter
     if (type === 'chapter' && sessionId) {
-      const { PrismaClient } = await import('@prisma/client');
-      const prisma = new PrismaClient();
-      
       try {
+        const { PrismaClient } = await import('@prisma/client');
+        const prisma = new PrismaClient();
+        
         await prisma.chapter.upsert({
           where: {
             sessionId_chapterNumber: {
@@ -510,56 +415,45 @@ Remember: This chapter must advance the story meaningfully while meeting exact w
           }
         });
         
-        // Log successful save
-        console.log(`Chapter ${chapterNumber} saved successfully:`, {
-          wordCount,
-          compliance: wordCountCompliance,
-          meetsRequirement: meetsWordCountRequirement
-        });
+        await prisma.$disconnect();
+        console.log(`Chapter ${chapterNumber} saved to database`);
         
       } catch (dbError) {
-        console.error('Database error saving chapter:', dbError);
-        // Continue even if DB save fails, but include error in response
+        console.error('Database error:', dbError);
+        // Continue even if DB save fails
       }
-      
-      await prisma.$disconnect();
     }
 
-    // Return enhanced response with detailed validation information
-    const response = {
+    // Return response
+    const result = {
       content,
       wordCount,
       readTime,
       humanizationScore,
       wordTarget,
-      wordCountRange,
-      meetsWordCountRequirement,
-      wordCountCompliance,
-      wordCountStatus,
-      wordCountMessage,
-      generationAttempts,
-      finalAttempt,
-      validationDetails,
-      routingInfo: result.routingInfo,
-      ...(warning && { warning })
+      meetsWordCountRequirement: validation.meetsRequirement,
+      wordCountCompliance: validation.compliance,
+      wordCountStatus: validation.status,
+      wordCountMessage: validation.message,
+      routingInfo: {
+        modelUsed: response.model,
+        provider: response.provider,
+        fallbackUsed: response.metadata?.fallbackUsed || false
+      }
     };
 
-    console.log(`Content generation completed using RouteLLM:`, result.routingInfo);
-
-    return NextResponse.json(response);
+    console.log(`Content generation completed successfully`);
+    return NextResponse.json(result);
     
   } catch (error) {
     console.error('Error generating content:', error);
     
-    // Return detailed error information for debugging
-    const errorResponse = {
+    return NextResponse.json({
       error: 'Failed to generate content',
       details: error instanceof Error ? error.message : 'Unknown error occurred',
       timestamp: new Date().toISOString(),
       requestType: type,
       targetWordCount: wordTarget
-    };
-    
-    return NextResponse.json(errorResponse, { status: 500 });
+    }, { status: 500 });
   }
 }
