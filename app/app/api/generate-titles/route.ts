@@ -1,26 +1,21 @@
 
 import { NextRequest, NextResponse } from 'next/server';
+import { routeLLMClient } from '@/lib/routellm';
 
 export async function POST(request: NextRequest) {
   try {
     const { synopsis, genre } = await request.json();
 
-    const response = await fetch('https://apps.abacus.ai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.ABACUSAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
-        messages: [
-          {
-            role: 'system',
-            content: `You are a book marketing expert specializing in creating compelling, marketable book titles for the ${genre} genre.`
-          },
-          {
-            role: 'user',
-            content: `Based on this synopsis: "${synopsis}"
+    // Use RouteLLM for intelligent model selection optimized for creative title generation
+    const response = await routeLLMClient.chatCompletion({
+      messages: [
+        {
+          role: 'system',
+          content: `You are a book marketing expert specializing in creating compelling, marketable book titles for the ${genre} genre.`
+        },
+        {
+          role: 'user',
+          content: `Based on this synopsis: "${synopsis}"
 
 Generate 8 compelling book titles for this ${genre} story. Each title should:
 - Be memorable and marketable
@@ -32,22 +27,22 @@ Generate 8 compelling book titles for this ${genre} story. Each title should:
 For each title, provide a brief reasoning explaining why it would work well.
 
 Format as JSON array with objects containing "id", "title", and "reasoning".`
-          }
-        ],
-        response_format: { type: "json_object" }
-      }),
+        }
+      ],
+      responseFormat: { type: "json_object" },
+      taskType: 'title-generation',
+      taskRequirements: {
+        priority: 'speed',
+        creativityLevel: 'high',
+        structuredOutput: true,
+        maxTokensNeeded: 3000
+      }
     });
 
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.status}`);
-    }
-
-    const data = await response.json();
     let titles;
 
     try {
-      const content = data.choices?.[0]?.message?.content || '{}';
-      const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
+      const cleanContent = response.content.replace(/```json\n?|\n?```/g, '').trim();
       const parsed = JSON.parse(cleanContent);
       titles = parsed.titles || parsed;
     } catch (parseError) {
@@ -65,7 +60,20 @@ Format as JSON array with objects containing "id", "title", and "reasoning".`
       ];
     }
 
-    return NextResponse.json(Array.isArray(titles) ? titles : []);
+    // Ensure we have an array
+    const finalTitles = Array.isArray(titles) ? titles : [];
+
+    // Add routing metadata to response for debugging
+    const routingInfo = {
+      modelUsed: response.model,
+      provider: response.provider,
+      fallbackUsed: response.metadata?.fallbackUsed || false,
+      titlesGenerated: finalTitles.length
+    };
+
+    console.log(`Title generation completed using RouteLLM:`, routingInfo);
+
+    return NextResponse.json(finalTitles.map(t => ({ ...t, _routeLLM: routingInfo })));
   } catch (error) {
     console.error('Error generating titles:', error);
     return NextResponse.json({ error: 'Failed to generate titles' }, { status: 500 });

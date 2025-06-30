@@ -1,5 +1,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
+import { routeLLMClient } from '@/lib/routellm';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,22 +14,10 @@ Based on genre analysis:
 - Typical structure: ${genreAnalysis.topBooks?.[0]?.structure || 'Three-act structure'}
 ` : '';
 
-    const response = await fetch('https://apps.abacus.ai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.ABACUSAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
-        messages: [
-          {
-            role: 'system',
-            content: `You are a bestselling author and book concept developer. Create compelling book synopses for the ${genre} genre that have high commercial potential.`
-          },
-          {
-            role: 'user',
-            content: `Generate 12 unique book synopses for the ${genre} genre ${topicContext}.
+    // Use RouteLLM for intelligent model selection optimized for creative synopsis generation
+    const response = await routeLLMClient.generateWithSystem(
+      `You are a bestselling author and book concept developer. Create compelling book synopses for the ${genre} genre that have high commercial potential.`,
+      `Generate 12 unique book synopses for the ${genre} genre ${topicContext}.
 
 ${analysisContext}
 
@@ -40,22 +29,22 @@ Each synopsis should:
 - Follow successful patterns in the genre
 - Have a success probability of 88% or higher
 
-Format as JSON array with objects containing "id", "content", and "successProbability" (88-95). Respond with raw JSON only.`
-          }
-        ]
-      }),
-    });
+Format as JSON array with objects containing "id", "content", and "successProbability" (88-95). Respond with raw JSON only.`,
+      'synopsis-generation',
+      {
+        taskRequirements: {
+          priority: 'quality',
+          creativityLevel: 'high',
+          structuredOutput: true,
+          maxTokensNeeded: 6000
+        }
+      }
+    );
 
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.status}`);
-    }
-
-    const data = await response.json();
     let synopses;
 
     try {
-      const content = data.choices?.[0]?.message?.content || '{}';
-      const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
+      const cleanContent = response.content.replace(/```json\n?|\n?```/g, '').trim();
       const parsed = JSON.parse(cleanContent);
       
       // Ensure we always get an array
@@ -91,10 +80,30 @@ Format as JSON array with objects containing "id", "content", and "successProbab
         content: `A captivating ${genre} story that combines classic elements of the genre with fresh perspectives. Features compelling characters navigating complex challenges, delivering both emotional depth and the exciting elements readers expect from ${genre} fiction.`,
         successProbability: 88 + Math.floor(Math.random() * 7)
       }));
-      return NextResponse.json(fallbackSynopses);
+      
+      const routingInfo = {
+        modelUsed: response.model,
+        provider: response.provider,
+        fallbackUsed: response.metadata?.fallbackUsed || false,
+        fallbackReason: 'No valid synopses generated, using fallback data'
+      };
+
+      console.log(`Synopsis generation fallback triggered:`, routingInfo);
+      
+      return NextResponse.json(fallbackSynopses.map(s => ({ ...s, _routeLLM: routingInfo })));
     }
 
-    return NextResponse.json(filteredSynopses);
+    // Add routing metadata to response for debugging
+    const routingInfo = {
+      modelUsed: response.model,
+      provider: response.provider,
+      fallbackUsed: response.metadata?.fallbackUsed || false,
+      synopsesGenerated: filteredSynopses.length
+    };
+
+    console.log(`Synopsis generation completed using RouteLLM:`, routingInfo);
+
+    return NextResponse.json(filteredSynopses.map(s => ({ ...s, _routeLLM: routingInfo })));
   } catch (error) {
     console.error('Error generating synopses:', error);
     return NextResponse.json({ error: 'Failed to generate synopses' }, { status: 500 });

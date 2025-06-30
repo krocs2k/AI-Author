@@ -1,26 +1,15 @@
 
 import { NextRequest, NextResponse } from 'next/server';
+import { routeLLMClient } from '@/lib/routellm';
 
 export async function POST(request: NextRequest) {
   try {
     const { genre } = await request.json();
 
-    const response = await fetch('https://apps.abacus.ai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.ABACUSAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
-        messages: [
-          {
-            role: 'system',
-            content: `You are an expert literary analyst specializing in bestselling books. Analyze the ${genre} genre and provide detailed insights for authors.`
-          },
-          {
-            role: 'user',
-            content: `Analyze the ${genre} genre and provide:
+    // Use RouteLLM for intelligent model selection based on analytical task requirements
+    const response = await routeLLMClient.generateWithSystem(
+      `You are an expert literary analyst specializing in bestselling books. Analyze the ${genre} genre and provide detailed insights for authors.`,
+      `Analyze the ${genre} genre and provide:
 
 1. MojoSauce Analysis (Top 10 bestselling books in ${genre} from last 5 years):
 - Key successful books with their success elements
@@ -34,23 +23,22 @@ export async function POST(request: NextRequest) {
 - Narrative techniques
 - Voice characteristics that create 90%+ humanized content
 
-Format as JSON with "mojoSauce" and "secretSauce" keys. Respond with raw JSON only.`
-          }
-        ]
-      }),
-    });
+Format as JSON with "mojoSauce" and "secretSauce" keys. Respond with raw JSON only.`,
+      'genre-analysis',
+      {
+        taskRequirements: {
+          priority: 'quality',
+          creativityLevel: 'low',
+          structuredOutput: true
+        }
+      }
+    );
 
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.status}`);
-    }
-
-    const data = await response.json();
     let analysisResult;
     
     try {
       // Clean and parse JSON response
-      const content = data.choices?.[0]?.message?.content || '{}';
-      const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
+      const cleanContent = response.content.replace(/```json\n?|\n?```/g, '').trim();
       analysisResult = JSON.parse(cleanContent);
     } catch (parseError) {
       console.error('JSON parsing error:', parseError);
@@ -76,7 +64,19 @@ Format as JSON with "mojoSauce" and "secretSauce" keys. Respond with raw JSON on
       };
     }
 
-    return NextResponse.json(analysisResult);
+    // Add routing metadata to response for debugging
+    const routingInfo = {
+      modelUsed: response.model,
+      provider: response.provider,
+      fallbackUsed: response.metadata?.fallbackUsed || false
+    };
+
+    console.log(`Genre analysis completed using RouteLLM:`, routingInfo);
+
+    return NextResponse.json({
+      ...analysisResult,
+      _routeLLM: routingInfo
+    });
   } catch (error) {
     console.error('Error analyzing genre:', error);
     return NextResponse.json({ error: 'Failed to analyze genre' }, { status: 500 });

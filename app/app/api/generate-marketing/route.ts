@@ -1,5 +1,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
+import { routeLLMClient } from '@/lib/routellm';
 
 export async function POST(request: NextRequest) {
   try {
@@ -56,48 +57,64 @@ Also provide an image prompt for the back cover design.
 Format as JSON with "copy" and "imagePrompt" keys.`;
     }
 
-    const response = await fetch('https://apps.abacus.ai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.ABACUSAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
-        messages: [
-          {
-            role: 'system',
-            content: `You are a book marketing expert specializing in ${genre} fiction. Create compelling marketing materials that drive sales.`
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        response_format: type !== 'sales-copy' ? { type: "json_object" } : undefined
-      }),
+    // Use RouteLLM for intelligent model selection optimized for marketing content
+    const response = await routeLLMClient.chatCompletion({
+      messages: [
+        {
+          role: 'system',
+          content: `You are a book marketing expert specializing in ${genre} fiction. Create compelling marketing materials that drive sales.`
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      responseFormat: type !== 'sales-copy' ? { type: "json_object" } : undefined,
+      taskType: 'marketing-copy',
+      taskRequirements: {
+        priority: 'quality',
+        creativityLevel: 'medium',
+        structuredOutput: type !== 'sales-copy',
+        maxTokensNeeded: type === 'sales-copy' ? 1500 : 3000
+      }
     });
 
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.status}`);
-    }
+    const content = response.content || '';
 
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || '';
+    // Add routing metadata
+    const routingInfo = {
+      modelUsed: response.model,
+      provider: response.provider,
+      fallbackUsed: response.metadata?.fallbackUsed || false,
+      marketingType: type
+    };
+
+    console.log(`Marketing content generation completed using RouteLLM:`, routingInfo);
 
     if (type === 'sales-copy') {
-      return NextResponse.json({ content });
+      return NextResponse.json({ 
+        content,
+        _routeLLM: routingInfo
+      });
     }
 
     // Parse JSON response for other types
     try {
       const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
       const parsed = JSON.parse(cleanContent);
-      return NextResponse.json(parsed);
+      return NextResponse.json({
+        ...parsed,
+        _routeLLM: routingInfo
+      });
     } catch (parseError) {
       console.error('JSON parsing error:', parseError);
       
       // Fallback responses
+      const fallbackRoutingInfo = {
+        ...routingInfo,
+        fallbackReason: 'JSON parsing failed, using fallback data'
+      };
+
       if (type === 'cover-prompts') {
         return NextResponse.json({
           frontCovers: [
@@ -113,12 +130,14 @@ Format as JSON with "copy" and "imagePrompt" keys.`;
             'Elegant back cover featuring key story highlights and praise quotes',
             'Commercial back cover design optimized for online and physical retail',
             'Sophisticated back layout balancing text hierarchy and visual appeal'
-          ]
+          ],
+          _routeLLM: fallbackRoutingInfo
         });
       } else if (type === 'back-cover') {
         return NextResponse.json({
           copy: content || `Discover the compelling story that ${genre} readers are calling "unforgettable." With rich characters and expertly crafted plot, this book delivers everything fans of the genre love. Don't miss this captivating tale that will keep you turning pages late into the night.`,
-          imagePrompt: 'Clean, professional back cover design with elegant typography and subtle genre-themed background elements'
+          imagePrompt: 'Clean, professional back cover design with elegant typography and subtle genre-themed background elements',
+          _routeLLM: fallbackRoutingInfo
         });
       }
       

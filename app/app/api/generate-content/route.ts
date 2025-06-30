@@ -1,5 +1,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
+import { routeLLMClient } from '@/lib/routellm';
 
 // Enhanced word count calculation with better accuracy
 function calculateWordCount(text: string): number {
@@ -154,18 +155,9 @@ CORRECTION STRATEGY FOR THIS ATTEMPT:`;
         enhancedPrompt += `\n\nThis is your first attempt. Write naturally and engagingly while staying within the ${minimumWordCount}-${maximumWordCount} word range. Quality and word count are both important.`;
       }
 
-      const response = await fetch('https://apps.abacus.ai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.ABACUSAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: 'claude-3-5-sonnet-20241022',
-          messages: [
-            {
-              role: 'system',
-              content: `You are a bestselling author in the ${genre} genre. Write engaging, human-like content that feels authentic and compelling. 
+      // Use RouteLLM for intelligent model selection optimized for content creation
+      const response = await routeLLMClient.generateWithSystem(
+        `You are a bestselling author in the ${genre} genre. Write engaging, human-like content that feels authentic and compelling. 
 
 CRITICAL REQUIREMENTS:
 1. WORD COUNT: You MUST write exactly ${wordTarget} words (acceptable range: ${minimumWordCount}-${maximumWordCount} words)
@@ -179,25 +171,22 @@ WORD COUNT STRATEGY:
 - Every word should serve a purpose - no filler content
 - If you're near the limit, conclude naturally within the acceptable range
 
-Remember: Word count compliance is MANDATORY. Quality content within the specified word range is the goal.`
-            },
-            {
-              role: 'user',
-              content: enhancedPrompt
-            }
-          ],
+Remember: Word count compliance is MANDATORY. Quality content within the specified word range is the goal.`,
+        enhancedPrompt,
+        'content-creation',
+        {
           temperature: 0.7,
-          max_tokens: Math.max(4000, Math.ceil(wordTarget * 1.5)), // Ensure enough tokens for target length
-        }),
-      });
+          maxTokens: Math.max(4000, Math.ceil(wordTarget * 1.5)), // Ensure enough tokens for target length
+          taskRequirements: {
+            priority: 'quality',
+            creativityLevel: 'high',
+            maxTokensNeeded: Math.max(4000, Math.ceil(wordTarget * 1.5)),
+            fallbackAllowed: true
+          }
+        }
+      );
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`API request failed: ${response.status} - ${errorText}`);
-      }
-
-      const data = await response.json();
-      const content = data.choices?.[0]?.message?.content || '';
+      const content = response.content || '';
       
       if (!content.trim()) {
         throw new Error('No content generated');
@@ -242,7 +231,12 @@ Remember: Word count compliance is MANDATORY. Quality content within the specifi
           wordCountRange: `${minimumWordCount}-${maximumWordCount}`,
           generationAttempts,
           finalAttempt: attempts,
-          validationDetails: validation
+          validationDetails: validation,
+          routingInfo: {
+            modelUsed: response.model,
+            provider: response.provider,
+            fallbackUsed: response.metadata?.fallbackUsed || false
+          }
         };
       }
 
@@ -289,7 +283,12 @@ Remember: Word count compliance is MANDATORY. Quality content within the specifi
     generationAttempts,
     finalAttempt: attempts,
     validationDetails: finalValidation,
-    warning: `Content does not meet word count requirements after ${maxRetries} attempts. Using best available content.`
+    warning: `Content does not meet word count requirements after ${maxRetries} attempts. Using best available content.`,
+    routingInfo: {
+      modelUsed: 'best-attempt',
+      provider: 'unknown',
+      fallbackUsed: true
+    }
   };
 }
 
@@ -541,8 +540,11 @@ Remember: This chapter must advance the story meaningfully while meeting exact w
       generationAttempts,
       finalAttempt,
       validationDetails,
+      routingInfo: result.routingInfo,
       ...(warning && { warning })
     };
+
+    console.log(`Content generation completed using RouteLLM:`, result.routingInfo);
 
     return NextResponse.json(response);
     
