@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
         'Authorization': `Bearer ${process.env.ABACUSAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4.1-mini',
+        model: 'claude-3-5-sonnet-20241022',
         messages: [
           {
             role: 'system',
