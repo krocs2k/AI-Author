@@ -29,8 +29,26 @@ export interface Chapter {
   wordTarget?: number;
   meetsWordCountRequirement?: boolean;
   wordCountCompliance?: number;
-  generationAttempts?: Array<{attempt: number, wordCount: number, success: boolean}>;
+  wordCountStatus?: 'perfect' | 'acceptable' | 'too_short' | 'too_long';
+  wordCountMessage?: string;
+  wordCountRange?: string;
+  generationAttempts?: Array<{
+    attempt: number;
+    wordCount: number;
+    success: boolean;
+    compliance?: number;
+    status?: string;
+    deviation?: number;
+  }>;
   finalAttempt?: number;
+  validationDetails?: {
+    meetsRequirement: boolean;
+    compliance: number;
+    status: 'perfect' | 'acceptable' | 'too_short' | 'too_long';
+    deviation: number;
+    message: string;
+  };
+  warning?: string;
 }
 
 export interface BookMetrics {

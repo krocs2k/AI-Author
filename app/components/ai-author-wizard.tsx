@@ -277,8 +277,13 @@ export function AIAuthorWizard() {
         wordTarget: content.wordTarget,
         meetsWordCountRequirement: content.meetsWordCountRequirement,
         wordCountCompliance: content.wordCountCompliance,
+        wordCountStatus: content.wordCountStatus,
+        wordCountMessage: content.wordCountMessage,
+        wordCountRange: content.wordCountRange,
         generationAttempts: content.generationAttempts,
         finalAttempt: content.finalAttempt,
+        validationDetails: content.validationDetails,
+        warning: content.warning,
       };
       
       const updatedChapters = [...(session.chapters || [])];

@@ -215,15 +215,30 @@ export function ContentCreation({
                             </Badge>
                             {chapter.wordCountCompliance !== undefined && (
                               <Badge 
-                                variant={chapter.meetsWordCountRequirement ? "success" : "destructive"}
+                                variant={
+                                  chapter.wordCountStatus === 'perfect' ? "success" :
+                                  chapter.wordCountStatus === 'acceptable' ? "success" :
+                                  "destructive"
+                                }
                                 className="flex items-center gap-1"
+                                title={chapter.wordCountMessage}
                               >
-                                {chapter.meetsWordCountRequirement ? '✓' : '⚠'} {chapter.wordCountCompliance}% (92-110% target)
+                                {chapter.wordCountStatus === 'perfect' ? '🎯' :
+                                 chapter.wordCountStatus === 'acceptable' ? '✓' :
+                                 chapter.wordCountStatus === 'too_short' ? '📏' :
+                                 chapter.wordCountStatus === 'too_long' ? '✂️' : '⚠'} 
+                                {chapter.wordCountCompliance}% 
+                                {chapter.wordCountRange && ` (target: ${chapter.wordCountRange})`}
                               </Badge>
                             )}
                             {chapter.finalAttempt && chapter.finalAttempt > 1 && (
                               <Badge variant="outline" className="text-xs">
                                 {chapter.finalAttempt} attempts
+                              </Badge>
+                            )}
+                            {chapter.warning && (
+                              <Badge variant="destructive" className="text-xs" title={chapter.warning}>
+                                ⚠ Warning
                               </Badge>
                             )}
                             <Button
