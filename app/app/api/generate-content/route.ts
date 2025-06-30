@@ -160,19 +160,71 @@ Synopsis for context: ${synopsis}`;
     } else if (type === 'chapter') {
       // Use custom words per chapter if provided, otherwise default to 3500
       wordTarget = wordsPerChapter || 3500;
+      
+      // Get surrounding chapters for context if this is a regeneration
+      let contextChapters = '';
+      if (sessionId) {
+        try {
+          const { PrismaClient } = await import('@prisma/client');
+          const prisma = new PrismaClient();
+          
+          // Fetch chapters around the current one for context
+          const existingChapters = await prisma.chapter.findMany({
+            where: { sessionId },
+            orderBy: { chapterNumber: 'asc' },
+            select: {
+              chapterNumber: true,
+              content: true,
+              wordCount: true
+            }
+          });
+          
+          if (existingChapters.length > 0) {
+            // Get previous and next chapters for context
+            const previousChapter = existingChapters.find(c => c.chapterNumber === chapterNumber - 1);
+            const nextChapter = existingChapters.find(c => c.chapterNumber === chapterNumber + 1);
+            const currentChapter = existingChapters.find(c => c.chapterNumber === chapterNumber);
+            
+            if (previousChapter || nextChapter || currentChapter) {
+              contextChapters = '\n\nSTORY CONTEXT FOR CONTINUITY:\n';
+              
+              if (previousChapter) {
+                const lastParagraphs = previousChapter.content?.split('\n\n').slice(-2).join('\n\n') || '';
+                contextChapters += `\nPREVIOUS CHAPTER ${previousChapter.chapterNumber} (ending):\n"${lastParagraphs}"\n`;
+              }
+              
+              if (currentChapter && previousChapter) {
+                contextChapters += `\nREGENERATING: This is a regeneration of Chapter ${chapterNumber}. Maintain consistency with surrounding chapters while improving quality and flow.\n`;
+              }
+              
+              if (nextChapter) {
+                const firstParagraphs = nextChapter.content?.split('\n\n').slice(0, 2).join('\n\n') || '';
+                contextChapters += `\nNEXT CHAPTER ${nextChapter.chapterNumber} (beginning):\n"${firstParagraphs}"\n`;
+                contextChapters += `\nIMPORTANT: Ensure this chapter flows naturally into the next chapter's opening.\n`;
+              }
+            }
+          }
+          
+          await prisma.$disconnect();
+        } catch (dbError) {
+          console.error('Error fetching context chapters:', dbError);
+          // Continue without context if DB query fails
+        }
+      }
+      
       prompt = `Write Chapter ${chapterNumber} for a ${genre} book titled "${title}".
 
 ${humanizationContext}
 
 The chapter should:
 - Be approximately ${wordTarget} words
-- Maintain story continuity
+- Maintain story continuity${contextChapters ? ' with the provided context' : ''}
 - Include compelling dialogue and action
 - Advance the plot meaningfully
 - Achieve 94%+ humanization quality through varied sentence structure and natural flow
 - End with a hook for the next chapter
 
-Synopsis for context: ${synopsis}`;
+Synopsis for context: ${synopsis}${contextChapters}`;
     }
 
     // Generate content with word count validation

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Chapter, BookMetrics } from '@/lib/types';
-import { BookOpen, Download, FileText, Clock, TrendingUp, Target } from 'lucide-react';
+import { BookOpen, Download, FileText, Clock, TrendingUp, Target, RefreshCw } from 'lucide-react';
 import { formatReadTime, formatNumber, downloadAsFile, downloadBookAsPDF, downloadBookAsDocx, downloadBookAsText } from '@/lib/utils';
 
 interface ContentCreationProps {
@@ -239,6 +239,24 @@ export function ContentCreation({
                               onClick={() => downloadAsFile(chapter.content || '', `chapter-${chapterNumber}.txt`)}
                             >
                               <Download size={16} />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => onGenerateChapter(chapterNumber)}
+                              disabled={isLoading?.[`chapter-${chapterNumber}`]}
+                            >
+                              {isLoading?.[`chapter-${chapterNumber}`] ? (
+                                <>
+                                  <LoadingSpinner size="sm" className="mr-1" />
+                                  Regenerating...
+                                </>
+                              ) : (
+                                <>
+                                  <RefreshCw size={16} className="mr-1" />
+                                  Regenerate
+                                </>
+                              )}
                             </Button>
                           </>
                         ) : (
