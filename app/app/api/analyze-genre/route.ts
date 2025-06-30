@@ -34,10 +34,9 @@ export async function POST(request: NextRequest) {
 - Narrative techniques
 - Voice characteristics that create 90%+ humanized content
 
-Format as JSON with "mojoSauce" and "secretSauce" keys.`
+Format as JSON with "mojoSauce" and "secretSauce" keys. Respond with raw JSON only.`
           }
-        ],
-        response_format: { type: "json_object" }
+        ]
       }),
     });
 

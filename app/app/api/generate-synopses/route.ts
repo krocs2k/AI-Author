@@ -40,10 +40,9 @@ Each synopsis should:
 - Follow successful patterns in the genre
 - Have a success probability of 88% or higher
 
-Format as JSON array with objects containing "id", "content", and "successProbability" (88-95).`
+Format as JSON array with objects containing "id", "content", and "successProbability" (88-95). Respond with raw JSON only.`
           }
-        ],
-        response_format: { type: "json_object" }
+        ]
       }),
     });
 
