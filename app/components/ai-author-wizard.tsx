@@ -15,7 +15,7 @@ import { MarketingFinalization } from './wizard/marketing-finalization';
 import { calculateReadTime, generateHumanizationScore, generateSuccessProbability, simulateAnalysisDelay, downloadAsFile, downloadBookAsPDF, downloadBookAsDocx, downloadBookAsText } from '@/lib/utils';
 import { BOOK_GENRES } from '@/lib/genres';
 import { Button } from './ui/button';
-import { BookOpen, LogOut, Shield, User } from 'lucide-react';
+import { BookOpen, LogOut, Shield, User, RotateCcw } from 'lucide-react';
 
 const WIZARD_STEPS: WizardStep[] = [
   { id: 1, title: 'Genre', description: 'Select your book genre', completed: false },
@@ -63,6 +63,19 @@ export default function AIAuthorWizard() {
       });
     } catch (error) {
       console.error('Failed to update session:', error);
+    }
+  };
+
+  const startNewSession = async () => {
+    try {
+      const response = await fetch('/api/session', { method: 'POST' });
+      const data = await response.json();
+      setSessionId(data.sessionId);
+      setSession({});
+      setCurrentStep(1);
+      setIsLoading({});
+    } catch (error) {
+      console.error('Failed to start new session:', error);
     }
   };
 
@@ -483,6 +496,15 @@ export default function AIAuthorWizard() {
                 </Button>
               </Link>
             )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={startNewSession}
+              className="text-gray-400 hover:text-white"
+            >
+              <RotateCcw className="h-4 w-4 mr-2" />
+              New Session
+            </Button>
             <Button
               variant="ghost"
               size="sm"
