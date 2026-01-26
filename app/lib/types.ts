@@ -102,6 +102,7 @@ export interface BookSession {
   selectedSynopsisId?: string;
   synopses?: Synopsis[];
   selectedTitle?: string;
+  selectedTitleId?: string;
   customTitle?: string;
   generatedTitles?: BookTitle[];
   plannedChapters?: number;

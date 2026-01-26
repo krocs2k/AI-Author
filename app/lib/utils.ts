@@ -447,3 +447,65 @@ export function downloadBookAsText(
   const safeTitle = title.replace(/[^a-zA-Z0-9]/g, '_');
   downloadAsFile(content, `${safeTitle}.txt`, 'text/plain');
 }
+
+// Download individual content as DOCX
+export async function downloadContentAsDocx(
+  content: string,
+  title: string,
+  filename: string
+) {
+  try {
+    const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = await import('docx');
+    const { saveAs } = await import('file-saver');
+
+    const children: any[] = [];
+
+    // Title
+    children.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: title,
+            bold: true,
+            size: 36,
+          }),
+        ],
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 400 },
+      })
+    );
+
+    // Content - split into paragraphs
+    const paragraphs = content.split('\n').filter(p => p.trim());
+    paragraphs.forEach(paragraph => {
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: paragraph,
+              size: 24,
+            }),
+          ],
+          spacing: { after: 200 },
+        })
+      );
+    });
+
+    const doc = new Document({
+      sections: [
+        {
+          properties: {},
+          children: children,
+        },
+      ],
+    });
+
+    const blob = await Packer.toBlob(doc);
+    saveAs(blob, `${filename}.docx`);
+
+  } catch (error) {
+    console.error('DOCX generation failed:', error);
+    // Fallback to text download
+    downloadAsFile(content, `${filename}.txt`, 'text/plain');
+  }
+}

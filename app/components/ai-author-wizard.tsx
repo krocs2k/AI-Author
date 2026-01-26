@@ -321,6 +321,7 @@ export default function AIAuthorWizard() {
     const selectedTitle = session.generatedTitles?.find(t => t.id === titleId);
     updateSession({ 
       selectedTitle: selectedTitle?.title,
+      selectedTitleId: titleId,
       customTitle: undefined,
     });
   };
@@ -329,6 +330,7 @@ export default function AIAuthorWizard() {
     updateSession({ 
       customTitle: title,
       selectedTitle: undefined,
+      selectedTitleId: undefined,
     });
   };
 
@@ -355,14 +357,24 @@ export default function AIAuthorWizard() {
       await new Promise(r => setTimeout(r, 500));
       advanceProgress('Writing forward section');
       
+      const bookTitle = session.selectedTitle || session.customTitle;
+      const bookSynopsis = session.selectedSynopsis;
+      const bookGenre = session.selectedGenre;
+      
+      console.log('Generating forward with:', { bookTitle, bookSynopsis: bookSynopsis?.substring(0, 100), bookGenre });
+      
+      if (!bookTitle || !bookSynopsis || !bookGenre) {
+        throw new Error('Missing required data: title, synopsis, or genre');
+      }
+      
       const response = await fetch('/api/generate-content', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'forward',
-          title: session.selectedTitle || session.customTitle,
-          synopsis: session.selectedSynopsis,
-          genre: session.selectedGenre,
+          title: bookTitle,
+          synopsis: bookSynopsis,
+          genre: bookGenre,
           authorAnalysis: session.authorAnalysis,
         }),
       });
@@ -370,10 +382,22 @@ export default function AIAuthorWizard() {
       advanceProgress('Applying voice style');
       await new Promise(r => setTimeout(r, 400));
       
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Forward generation API error:', response.status, errorText);
+        throw new Error(`API error: ${response.status}`);
+      }
+      
       const content = await response.json();
+      
+      if (content.error) {
+        throw new Error(content.error);
+      }
       
       advanceProgress('Validating content');
       await new Promise(r => setTimeout(r, 300));
+      
+      console.log('Forward generated successfully:', { wordCount: content.wordCount });
       
       await updateSession({
         forward: content.content,
@@ -397,6 +421,16 @@ export default function AIAuthorWizard() {
       // Step 1: Drafting
       advanceProgress(`Writing chapter ${chapterNumber}`);
       
+      const bookTitle = session.selectedTitle || session.customTitle;
+      const bookSynopsis = session.selectedSynopsis;
+      const bookGenre = session.selectedGenre;
+      
+      console.log(`Generating chapter ${chapterNumber} with:`, { bookTitle, bookGenre, wordsPerChapter: session.wordsPerChapter });
+      
+      if (!bookTitle || !bookSynopsis || !bookGenre) {
+        throw new Error('Missing required data: title, synopsis, or genre');
+      }
+      
       const response = await fetch('/api/generate-content', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -404,16 +438,22 @@ export default function AIAuthorWizard() {
           type: 'chapter',
           sessionId,
           chapterNumber,
-          title: session.selectedTitle || session.customTitle,
-          synopsis: session.selectedSynopsis,
-          genre: session.selectedGenre,
+          title: bookTitle,
+          synopsis: bookSynopsis,
+          genre: bookGenre,
           authorAnalysis: session.authorAnalysis,
-          wordsPerChapter: session.wordsPerChapter,
+          wordsPerChapter: session.wordsPerChapter || 3500,
         }),
       });
       
       advanceProgress('Humanizing content');
       await new Promise(r => setTimeout(r, 300));
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Chapter generation API error:', response.status, errorText);
+        throw new Error(`API error: ${response.status}`);
+      }
       
       const content = await response.json();
       
@@ -423,6 +463,8 @@ export default function AIAuthorWizard() {
       if (content.error) {
         throw new Error(content.error);
       }
+      
+      console.log(`Chapter ${chapterNumber} generated successfully:`, { wordCount: content.wordCount });
       
       const newChapter: Chapter = {
         id: `chapter-${chapterNumber}`,
@@ -714,6 +756,7 @@ export default function AIAuthorWizard() {
           {currentStep === 3 && (
             <TitlePlanning
               titles={session.generatedTitles}
+              selectedTitleId={session.selectedTitleId}
               selectedTitle={session.selectedTitle}
               customTitle={session.customTitle}
               plannedChapters={session.plannedChapters}

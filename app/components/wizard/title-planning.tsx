@@ -11,6 +11,7 @@ import { BookOpen, Settings, Lightbulb } from 'lucide-react';
 
 interface TitlePlanningProps {
   titles?: BookTitle[];
+  selectedTitleId?: string;
   selectedTitle?: string;
   customTitle?: string;
   plannedChapters?: number;
@@ -26,6 +27,7 @@ interface TitlePlanningProps {
 
 export function TitlePlanning({
   titles,
+  selectedTitleId,
   selectedTitle,
   customTitle,
   plannedChapters,
@@ -68,14 +70,19 @@ export function TitlePlanning({
                 <Card
                   key={title.id}
                   className={`cursor-pointer transition-all duration-200 hover:scale-[1.02] ${
-                    selectedTitle === title.id
-                      ? 'border-teal-500 bg-teal-500/5'
+                    selectedTitleId === title.id
+                      ? 'border-teal-500 bg-teal-500/10 ring-2 ring-teal-500/50'
                       : 'border-gray-700 hover:border-gray-600'
                   }`}
                   onClick={() => onTitleSelect(title.id)}
                 >
                   <CardContent className="p-4">
-                    <h4 className="font-semibold text-gray-100 mb-2">{title.title}</h4>
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-semibold text-gray-100 mb-2">{title.title}</h4>
+                      {selectedTitleId === title.id && (
+                        <span className="text-teal-400 text-sm font-medium">✓ Selected</span>
+                      )}
+                    </div>
                     <p className="text-sm text-gray-400">{title.reasoning}</p>
                   </CardContent>
                 </Card>

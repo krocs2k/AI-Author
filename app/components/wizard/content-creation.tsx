@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Chapter, BookMetrics } from '@/lib/types';
 import { BookOpen, Download, FileText, Clock, TrendingUp, Target, RefreshCw } from 'lucide-react';
-import { formatReadTime, formatNumber, downloadAsFile, downloadBookAsPDF, downloadBookAsDocx, downloadBookAsText } from '@/lib/utils';
+import { formatReadTime, formatNumber, downloadAsFile, downloadContentAsDocx, downloadBookAsPDF, downloadBookAsDocx, downloadBookAsText } from '@/lib/utils';
 
 interface ContentCreationProps {
   title?: string;
@@ -142,10 +142,20 @@ export function ContentCreation({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => downloadAsFile(forward, 'forward.txt')}
+                  onClick={() => downloadContentAsDocx(forward, 'Forward/Introduction', 'forward')}
+                  title="Download as Word document"
                 >
                   <Download size={16} className="mr-1" />
-                  Download
+                  DOCX
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => downloadAsFile(forward, 'forward.txt')}
+                  title="Download as text file"
+                >
+                  <FileText size={16} className="mr-1" />
+                  TXT
                 </Button>
                 <Button
                   variant="outline"
@@ -153,6 +163,7 @@ export function ContentCreation({
                   onClick={onGenerateForward}
                   disabled={isLoading?.forward}
                 >
+                  <RefreshCw size={16} className="mr-1" />
                   Regenerate
                 </Button>
               </div>
@@ -251,9 +262,18 @@ export function ContentCreation({
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => downloadAsFile(chapter.content || '', `chapter-${chapterNumber}.txt`)}
+                              onClick={() => downloadContentAsDocx(chapter.content || '', `Chapter ${chapterNumber}`, `chapter-${chapterNumber}`)}
+                              title="Download as Word document"
                             >
                               <Download size={16} />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => downloadAsFile(chapter.content || '', `chapter-${chapterNumber}.txt`)}
+                              title="Download as text file"
+                            >
+                              <FileText size={16} />
                             </Button>
                             <Button
                               variant="outline"
