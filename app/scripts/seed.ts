@@ -20,6 +20,20 @@ async function main() {
   });
   console.log('Test admin user created:', testUser.email);
 
+  // Create test user for automated testing
+  const testUserPassword = await bcrypt.hash('Test123!', 12);
+  const automatedTestUser = await prisma.user.upsert({
+    where: { email: 'test@example.com' },
+    update: {},
+    create: {
+      email: 'test@example.com',
+      name: 'Test User',
+      password: testUserPassword,
+      role: 'USER'
+    }
+  });
+  console.log('Automated test user created:', automatedTestUser.email);
+
   // Create additional admin user as requested
   const adminPassword = await bcrypt.hash('Admin123!', 12);
   const adminUser = await prisma.user.upsert({
