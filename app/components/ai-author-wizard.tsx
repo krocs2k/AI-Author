@@ -2,6 +2,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession, signOut } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { BookSession, WizardStep, Synopsis, BookTitle, Chapter, BookMetrics } from '@/lib/types';
 import { ProgressBar } from './wizard/progress-bar';
 import { GenreSelection } from './wizard/genre-selection';
@@ -11,6 +14,8 @@ import { ContentCreation } from './wizard/content-creation';
 import { MarketingFinalization } from './wizard/marketing-finalization';
 import { calculateReadTime, generateHumanizationScore, generateSuccessProbability, simulateAnalysisDelay, downloadAsFile, downloadBookAsPDF, downloadBookAsDocx, downloadBookAsText } from '@/lib/utils';
 import { BOOK_GENRES } from '@/lib/genres';
+import { Button } from './ui/button';
+import { BookOpen, LogOut, Shield, User } from 'lucide-react';
 
 const WIZARD_STEPS: WizardStep[] = [
   { id: 1, title: 'Genre', description: 'Select your book genre', completed: false },
@@ -20,7 +25,11 @@ const WIZARD_STEPS: WizardStep[] = [
   { id: 5, title: 'Marketing', description: 'Create marketing assets', completed: false },
 ];
 
-export function AIAuthorWizard() {
+export default function AIAuthorWizard() {
+  const { data: userSession } = useSession() || {};
+  const router = useRouter();
+  const isAdmin = (userSession?.user as any)?.role === 'ADMIN';
+  
   const [sessionId, setSessionId] = useState<string>('');
   const [currentStep, setCurrentStep] = useState(1);
   const [session, setSession] = useState<Partial<BookSession>>({});
@@ -452,6 +461,41 @@ export function AIAuthorWizard() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100">
+      {/* Header */}
+      <header className="sticky top-0 z-50 w-full border-b border-gray-800 bg-gray-900/95 backdrop-blur supports-[backdrop-filter]:bg-gray-900/75">
+        <div className="container mx-auto flex h-16 items-center justify-between px-4">
+          <div className="flex items-center gap-2">
+            <BookOpen className="h-7 w-7 text-teal-400" />
+            <h1 className="text-2xl font-bold text-teal-400">AI Author</h1>
+          </div>
+          <div className="flex items-center gap-4">
+            {userSession?.user && (
+              <div className="flex items-center gap-2 text-gray-400">
+                <User className="h-4 w-4" />
+                <span className="text-sm">{userSession.user.name || userSession.user.email}</span>
+              </div>
+            )}
+            {isAdmin && (
+              <Link href="/admin">
+                <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
+                  <Shield className="h-4 w-4 mr-2" />
+                  Admin
+                </Button>
+              </Link>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => signOut({ callbackUrl: '/login' })}
+              className="text-gray-400 hover:text-white"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
+            </Button>
+          </div>
+        </div>
+      </header>
+
       <div className="container mx-auto px-4 py-8">
         <ProgressBar steps={WIZARD_STEPS} currentStep={currentStep} />
         
@@ -530,6 +574,17 @@ export function AIAuthorWizard() {
           )}
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="border-t border-gray-800 bg-gray-900 mt-auto">
+        <div className="container mx-auto px-4 py-6">
+          <div className="max-w-6xl mx-auto text-center">
+            <p className="text-sm text-gray-400">
+              © {new Date().getFullYear()} AI Author. All rights reserved.
+            </p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

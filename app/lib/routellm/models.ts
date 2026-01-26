@@ -4,6 +4,24 @@ import { LLMModel, ModelCapabilities } from './types';
 // Define available models through AbacusAI endpoint
 // Note: We're starting with models available through AbacusAI, but this can be extended
 export const AVAILABLE_MODELS: LLMModel[] = [
+  // Llama 4 Maverick (Primary model for book content generation)
+  {
+    id: 'llama-4-maverick-17b-128e-instruct',
+    name: 'Llama 4 Maverick',
+    provider: 'abacusai',
+    capabilities: {
+      creative: 96,
+      analytical: 92,
+      technical: 90,
+      conversational: 95,
+      longForm: 97,
+      structured: 90
+    },
+    costTier: 'medium',
+    qualityScore: 96,
+    maxTokens: 16384,
+    contextWindow: 128000
+  },
   // Claude Models (High quality, excellent for creative tasks)
   {
     id: 'claude-3-5-sonnet-20241022',
@@ -135,34 +153,34 @@ export const TASK_MODEL_PREFERENCES: Record<string, {
   reasoning: string;
 }> = {
   'genre-analysis': {
-    primary: ['gpt-4-turbo-preview', 'gemini-1.5-pro', 'claude-3-5-sonnet-20241022'],
+    primary: ['gpt-4-turbo-preview', 'gemini-1.5-pro', 'llama-4-maverick-17b-128e-instruct'],
     capabilities: ['analytical', 'structured'],
     reasoning: 'Analytical tasks benefit from GPT-4 and Gemini\'s structured reasoning capabilities'
   },
   'synopsis-generation': {
-    primary: ['claude-3-5-sonnet-20241022', 'gpt-4-turbo-preview', 'gemini-1.5-pro'],
+    primary: ['llama-4-maverick-17b-128e-instruct', 'claude-3-5-sonnet-20241022', 'gpt-4-turbo-preview'],
     capabilities: ['creative', 'longForm'],
-    reasoning: 'Creative writing tasks leverage Claude\'s superior creative capabilities'
+    reasoning: 'Creative writing tasks leverage Llama 4 Maverick\'s superior creative capabilities'
   },
   'title-generation': {
-    primary: ['claude-3-5-sonnet-20241022', 'gpt-4o-mini', 'claude-3-haiku-20240307'],
+    primary: ['llama-4-maverick-17b-128e-instruct', 'claude-3-5-sonnet-20241022', 'gpt-4o-mini'],
     capabilities: ['creative', 'conversational'],
-    reasoning: 'Creative but shorter tasks can use faster models while maintaining quality'
+    reasoning: 'Creative but shorter tasks use Llama 4 Maverick for quality'
   },
   'content-creation': {
-    primary: ['claude-3-5-sonnet-20241022', 'gpt-4-turbo-preview'],
+    primary: ['llama-4-maverick-17b-128e-instruct', 'gpt-4-turbo-preview', 'gemini-1.5-pro'],
     capabilities: ['creative', 'longForm', 'conversational'],
-    reasoning: 'Long-form creative content requires highest quality models'
+    reasoning: 'Long-form creative content uses Llama 4 Maverick as primary with GPT-4 and Gemini fallback'
   },
   'marketing-copy': {
-    primary: ['gpt-4-turbo-preview', 'claude-3-5-sonnet-20241022', 'gemini-1.5-pro'],
+    primary: ['llama-4-maverick-17b-128e-instruct', 'gpt-4-turbo-preview', 'gemini-1.5-pro'],
     capabilities: ['creative', 'conversational', 'structured'],
-    reasoning: 'Marketing copy needs persuasive writing with analytical understanding'
+    reasoning: 'Marketing copy uses Llama 4 Maverick with GPT-4 and Gemini as fallbacks'
   },
   'general': {
-    primary: ['claude-3-5-sonnet-20241022', 'gpt-4-turbo-preview'],
+    primary: ['llama-4-maverick-17b-128e-instruct', 'gpt-4-turbo-preview', 'gemini-1.5-pro'],
     capabilities: ['conversational', 'analytical'],
-    reasoning: 'General tasks use balanced high-quality models'
+    reasoning: 'General tasks use Llama 4 Maverick with GPT-4 and Gemini as fallbacks'
   }
 } as const;
 
