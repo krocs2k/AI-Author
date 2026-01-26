@@ -399,6 +399,45 @@ export default function AIAuthorWizard() {
     updateSession({ wordsPerChapter: words });
   };
 
+  const handleRegenerateTitles = async () => {
+    if (!session.selectedSynopsis) return;
+    
+    setIsLoading({ ...isLoading, titles: true });
+    startProgress('titleGeneration');
+    
+    try {
+      advanceProgress('Creating title options');
+      
+      const titlesResponse = await fetch('/api/generate-titles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          synopsis: session.selectedSynopsis,
+          genre: session.selectedGenre,
+        }),
+      });
+      
+      advanceProgress('Evaluating market appeal');
+      await new Promise(r => setTimeout(r, 400));
+      
+      const titles = await titlesResponse.json();
+      
+      await updateSession({
+        generatedTitles: titles,
+        selectedTitle: undefined,
+        selectedTitleId: undefined,
+        customTitle: undefined,
+      });
+      
+      completeProgress();
+    } catch (error) {
+      console.error('Title regeneration failed:', error);
+      hideProgress();
+    } finally {
+      setIsLoading({ ...isLoading, titles: false });
+    }
+  };
+
   const handleFetchChapterRecommendations = async () => {
     setIsLoading(prev => ({ ...prev, chapterRecommendations: true }));
     
@@ -1047,7 +1086,9 @@ export default function AIAuthorWizard() {
               onChaptersChange={handleChaptersChange}
               onWordsPerChapterChange={handleWordsPerChapterChange}
               onFetchRecommendations={handleFetchChapterRecommendations}
+              onRegenerateTitles={handleRegenerateTitles}
               onNext={handlePlanningNext}
+              isLoading={isLoading.titles}
               isLoadingRecommendations={isLoading.chapterRecommendations}
             />
           )}

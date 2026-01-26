@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { BookTitle, GenreAnalysis, ChapterRecommendations } from '@/lib/types';
-import { BookOpen, Settings, Lightbulb, BookMarked, TrendingUp, ChevronDown, ChevronUp, Target, Clock, Layers } from 'lucide-react';
+import { BookOpen, Settings, Lightbulb, BookMarked, TrendingUp, ChevronDown, ChevronUp, Target, Clock, Layers, RefreshCw } from 'lucide-react';
 
 interface TitlePlanningProps {
   titles?: BookTitle[];
@@ -24,6 +24,7 @@ interface TitlePlanningProps {
   onChaptersChange: (chapters: number) => void;
   onWordsPerChapterChange: (words: number) => void;
   onFetchRecommendations?: () => void;
+  onRegenerateTitles?: () => void;
   onNext: () => void;
   isLoading?: boolean;
   isLoadingRecommendations?: boolean;
@@ -43,6 +44,7 @@ export function TitlePlanning({
   onChaptersChange,
   onWordsPerChapterChange,
   onFetchRecommendations,
+  onRegenerateTitles,
   onNext,
   isLoading,
   isLoadingRecommendations
@@ -69,10 +71,28 @@ export function TitlePlanning({
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Title Selection - Left Column */}
         <div className="lg:col-span-1">
-          <h3 className="text-xl font-semibold text-gray-100 flex items-center gap-2 mb-4">
-            <BookOpen size={20} />
-            Generated Titles
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-semibold text-gray-100 flex items-center gap-2">
+              <BookOpen size={20} />
+              Generated Titles
+            </h3>
+            {onRegenerateTitles && titles && titles.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onRegenerateTitles}
+                disabled={isLoading}
+                className="text-teal-400 border-teal-500/50 hover:bg-teal-500/10"
+              >
+                {isLoading ? (
+                  <LoadingSpinner size="sm" className="mr-2" />
+                ) : (
+                  <RefreshCw size={14} className="mr-2" />
+                )}
+                Regenerate
+              </Button>
+            )}
+          </div>
 
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
