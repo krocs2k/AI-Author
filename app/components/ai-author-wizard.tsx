@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { BookSession, WizardStep, Synopsis, BookTitle, Chapter, BookMetrics, Character, CharacterRecommendations, CharacterRole } from '@/lib/types';
+import { BookSession, WizardStep, Synopsis, BookTitle, Chapter, BookMetrics, Character, CharacterRecommendations, CharacterRole, ChapterRecommendations } from '@/lib/types';
 import { ProgressBar } from './wizard/progress-bar';
 import { GenreSelection } from './wizard/genre-selection';
 import { SynopsisGeneration } from './wizard/synopsis-generation';
@@ -311,7 +311,7 @@ export default function AIAuthorWizard() {
   const handleSynopsisNext = async () => {
     if (!session.selectedSynopsis) return;
     
-    setIsLoading({ titles: true });
+    setIsLoading({ titles: true, chapterRecommendations: true });
     startProgress('titleGeneration');
     
     try {
@@ -319,24 +319,40 @@ export default function AIAuthorWizard() {
       await new Promise(r => setTimeout(r, 600));
       advanceProgress('Creating title options');
       
-      const response = await fetch('/api/generate-titles', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          synopsis: session.selectedSynopsis,
-          genre: session.selectedGenre,
+      // Fetch titles and chapter recommendations in parallel
+      const [titlesResponse, chapterRecResponse] = await Promise.all([
+        fetch('/api/generate-titles', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            synopsis: session.selectedSynopsis,
+            genre: session.selectedGenre,
+          }),
         }),
-      });
+        fetch('/api/generate-chapter-plan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'getRecommendations',
+            genre: session.selectedGenre,
+          }),
+        })
+      ]);
       
       advanceProgress('Evaluating market appeal');
       await new Promise(r => setTimeout(r, 400));
       
-      const titles = await response.json();
+      const titles = await titlesResponse.json();
+      const chapterRecData = await chapterRecResponse.json();
+      
+      // Use chapter recommendations if available, otherwise fall back to genre analysis
+      const recommendations = chapterRecData.success ? chapterRecData.recommendations : null;
       
       await updateSession({
         generatedTitles: titles,
-        plannedChapters: session.genreAnalysis?.avgChapters || 20,
-        wordsPerChapter: session.genreAnalysis?.avgWordsPerChapter || 3500,
+        chapterRecommendations: recommendations,
+        plannedChapters: recommendations?.recommendedChapters || session.genreAnalysis?.avgChapters || 20,
+        wordsPerChapter: recommendations?.recommendedWordsPerChapter || session.genreAnalysis?.avgWordsPerChapter || 3500,
         currentStep: 3,
       });
       
@@ -381,6 +397,38 @@ export default function AIAuthorWizard() {
 
   const handleWordsPerChapterChange = (words: number) => {
     updateSession({ wordsPerChapter: words });
+  };
+
+  const handleFetchChapterRecommendations = async () => {
+    setIsLoading(prev => ({ ...prev, chapterRecommendations: true }));
+    
+    try {
+      const response = await fetch('/api/generate-chapter-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'getRecommendations',
+          genre: session.selectedGenre,
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.recommendations) {
+          setSession(prev => ({ 
+            ...prev, 
+            chapterRecommendations: data.recommendations,
+            // Auto-update to recommended values if user hasn't customized
+            plannedChapters: prev.plannedChapters || data.recommendations.recommendedChapters,
+            wordsPerChapter: prev.wordsPerChapter || data.recommendations.recommendedWordsPerChapter,
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch chapter recommendations:', error);
+    } finally {
+      setIsLoading(prev => ({ ...prev, chapterRecommendations: false }));
+    }
   };
 
   const handlePlanningNext = async () => {
@@ -993,11 +1041,14 @@ export default function AIAuthorWizard() {
               plannedChapters={session.plannedChapters}
               wordsPerChapter={session.wordsPerChapter}
               genreAnalysis={session.genreAnalysis}
+              chapterRecommendations={session.chapterRecommendations}
               onTitleSelect={handleTitleSelect}
               onCustomTitleChange={handleCustomTitleChange}
               onChaptersChange={handleChaptersChange}
               onWordsPerChapterChange={handleWordsPerChapterChange}
+              onFetchRecommendations={handleFetchChapterRecommendations}
               onNext={handlePlanningNext}
+              isLoadingRecommendations={isLoading.chapterRecommendations}
             />
           )}
           

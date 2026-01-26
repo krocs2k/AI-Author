@@ -104,6 +104,31 @@ export interface CharacterRecommendations {
   genreSpecificTips: string[];
 }
 
+export interface ChapterRecommendations {
+  genre: string;
+  recommendedChapters: number;
+  recommendedWordsPerChapter: number;
+  totalWordTarget: number;
+  chapterStructure: {
+    opening: number; // First X chapters for setup
+    rising: number; // Rising action chapters
+    climax: number; // Climax chapters
+    falling: number; // Falling action chapters
+    resolution: number; // Resolution/ending chapters
+  };
+  reasoning: string;
+  topBooksReference: Array<{
+    title: string;
+    author: string;
+    chapterCount: number;
+    avgWordsPerChapter: number;
+    totalWords: number;
+    structure: string;
+  }>;
+  paceGuidelines: string[];
+  structureTips: string[];
+}
+
 export interface GenreAnalysis {
   topBooks: Array<{
     title: string;
@@ -153,6 +178,7 @@ export interface BookSession {
   generatedTitles?: BookTitle[];
   plannedChapters?: number;
   wordsPerChapter?: number;
+  chapterRecommendations?: ChapterRecommendations;
   characterRecommendations?: CharacterRecommendations;
   characters?: Character[];
   forward?: string;
