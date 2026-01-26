@@ -63,7 +63,7 @@ export function SynopsisGeneration({
                 <h4 className="font-semibold text-gray-200 mb-2">Success Factors</h4>
                 <div className="flex flex-wrap gap-1">
                   {genreAnalysis?.successFactors?.slice(0, 3).map((factor, index) => (
-                    <Badge key={index} variant="outline" className="text-xs">
+                    <Badge key={index} variant="outline" className="text-xs text-white border-teal-500/50 bg-teal-500/10">
                       {factor}
                     </Badge>
                   ))}
