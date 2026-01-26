@@ -457,18 +457,22 @@ export default function AIAuthorWizard() {
     startProgress('contentGeneration');
     
     try {
-      // Step 1: Drafting
-      advanceProgress(`Writing chapter ${chapterNumber}`);
+      // Step 1: Starting draft
+      advanceProgress(`Preparing chapter ${chapterNumber}`);
       
       const bookTitle = session.selectedTitle || session.customTitle;
       const bookSynopsis = session.selectedSynopsis;
       const bookGenre = session.selectedGenre;
+      const targetWords = session.wordsPerChapter || 3500;
       
-      console.log(`Generating chapter ${chapterNumber} with:`, { bookTitle, bookGenre, wordsPerChapter: session.wordsPerChapter });
+      console.log(`Generating chapter ${chapterNumber} with multi-stage approach:`, { bookTitle, bookGenre, targetWords });
       
       if (!bookTitle || !bookSynopsis || !bookGenre) {
         throw new Error('Missing required data: title, synopsis, or genre');
       }
+      
+      // Step 2: Opening section
+      advanceProgress(`Writing opening (~${Math.floor(targetWords / 4)} words)`);
       
       const response = await fetch('/api/generate-content', {
         method: 'POST',
@@ -481,12 +485,12 @@ export default function AIAuthorWizard() {
           synopsis: bookSynopsis,
           genre: bookGenre,
           authorAnalysis: session.authorAnalysis,
-          wordsPerChapter: session.wordsPerChapter || 3500,
+          wordsPerChapter: targetWords,
         }),
       });
       
-      advanceProgress('Humanizing content');
-      await new Promise(r => setTimeout(r, 300));
+      // Step 3: Middle sections (shown while waiting)
+      advanceProgress(`Building narrative (~${Math.floor(targetWords / 2)} words)`);
       
       if (!response.ok) {
         const errorText = await response.text();
@@ -496,14 +500,24 @@ export default function AIAuthorWizard() {
       
       const content = await response.json();
       
-      advanceProgress('Checking word count');
+      // Step 4: Conclusion
+      advanceProgress(`Finalizing chapter`);
       await new Promise(r => setTimeout(r, 200));
       
       if (content.error) {
         throw new Error(content.error);
       }
       
-      console.log(`Chapter ${chapterNumber} generated successfully:`, { wordCount: content.wordCount });
+      // Step 5: Humanization
+      advanceProgress('Applying humanization');
+      await new Promise(r => setTimeout(r, 200));
+      
+      // Step 6: Final polish
+      advanceProgress('Final polish');
+      await new Promise(r => setTimeout(r, 150));
+      
+      const stagesUsed = content.stages || 1;
+      console.log(`Chapter ${chapterNumber} generated: ${content.wordCount} words in ${stagesUsed} stages`);
       
       const newChapter: Chapter = {
         id: `chapter-${chapterNumber}`,
@@ -523,6 +537,7 @@ export default function AIAuthorWizard() {
         finalAttempt: content.finalAttempt,
         validationDetails: content.validationDetails,
         warning: content.warning,
+        stages: stagesUsed,
       };
       
       completeProgress();

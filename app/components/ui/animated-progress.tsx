@@ -205,8 +205,10 @@ export const PROGRESS_CONFIGS = {
     icon: 'content' as const,
     steps: [
       { id: 'draft', label: 'Drafting content', status: 'pending' as const },
-      { id: 'humanize', label: 'Applying humanization techniques', status: 'pending' as const },
-      { id: 'wordcount', label: 'Validating word count', status: 'pending' as const },
+      { id: 'stage1', label: 'Writing opening section', status: 'pending' as const },
+      { id: 'stage2', label: 'Developing middle sections', status: 'pending' as const },
+      { id: 'stage3', label: 'Crafting chapter conclusion', status: 'pending' as const },
+      { id: 'humanize', label: 'Applying humanization', status: 'pending' as const },
       { id: 'polish', label: 'Final polish', status: 'pending' as const },
     ],
   },

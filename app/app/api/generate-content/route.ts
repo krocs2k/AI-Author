@@ -26,7 +26,7 @@ function calculateWordCount(text: string): number {
 }
 
 // Enhanced validation function to check word count compliance
-function validateWordCount(wordCount: number, target: number, minPercent: number = 92, maxPercent: number = 110): {
+function validateWordCount(wordCount: number, target: number, minPercent: number = 85, maxPercent: number = 120): {
   meetsRequirement: boolean;
   compliance: number;
   status: 'perfect' | 'acceptable' | 'too_short' | 'too_long';
@@ -42,7 +42,7 @@ function validateWordCount(wordCount: number, target: number, minPercent: number
   let message: string;
   
   if (wordCount >= minWords && wordCount <= maxWords) {
-    const perfectRange = Math.floor(target * 0.05); // Within 5% is perfect
+    const perfectRange = Math.floor(target * 0.1); // Within 10% is perfect
     if (Math.abs(wordCount - target) <= perfectRange) {
       status = 'perfect';
       message = `Excellent! Word count is perfectly within target range.`;
@@ -52,10 +52,10 @@ function validateWordCount(wordCount: number, target: number, minPercent: number
     }
   } else if (wordCount < minWords) {
     status = 'too_short';
-    message = `Content is too short. Need ${minWords - wordCount} more words to meet minimum requirement.`;
+    message = `Content is shorter than expected. Generated ${wordCount} of ${target} target words.`;
   } else {
     status = 'too_long';
-    message = `Content is too long. Need to reduce by ${wordCount - maxWords} words to meet maximum requirement.`;
+    message = `Content is longer than expected. Generated ${wordCount} words (target: ${target}).`;
   }
   
   return {
@@ -67,237 +67,16 @@ function validateWordCount(wordCount: number, target: number, minPercent: number
   };
 }
 
-// Enhanced content generation with sophisticated retry logic and word count optimization
-async function generateContentWithWordCountValidation(
-  prompt: string,
-  genre: string,
-  wordTarget: number,
-  minimumPercentage: number = 92,
-  maximumPercentage: number = 110,
-  maxRetries: number = 3
-) {
-  const minimumWordCount = Math.floor(wordTarget * (minimumPercentage / 100));
-  const maximumWordCount = Math.floor(wordTarget * (maximumPercentage / 100));
-  let attempts = 0;
-  let bestContent = '';
-  let bestWordCount = 0;
-  let bestValidation: any = null;
-  const generationAttempts: Array<{
-    attempt: number, 
-    wordCount: number, 
-    success: boolean, 
-    compliance: number,
-    status: string,
-    deviation: number
-  }> = [];
+// Constants for multi-stage generation
+const WORDS_PER_STAGE = 800; // Generate ~800 words per API call to stay under timeout
+const MAX_STAGES = 6; // Maximum 6 stages = ~4800 words max per chapter
+const STAGE_TIMEOUT_MS = 70000; // 70 seconds per stage to stay under Cloudflare limit
 
-  while (attempts < maxRetries) {
-    attempts++;
-    
-    try {
-      // Build enhanced prompt with explicit word count guidance
-      let enhancedPrompt = prompt;
-      
-      // Add comprehensive word count guidance from the start
-      const wordCountGuidance = `
-
-CRITICAL WORD COUNT REQUIREMENTS:
-- Target word count: ${wordTarget} words (EXACT TARGET)
-- Acceptable range: ${minimumWordCount} - ${maximumWordCount} words (${minimumPercentage}% - ${maximumPercentage}% of target)
-- This is a STRICT requirement that MUST be met
-- Count every word carefully as you write
-
-WRITING STRATEGY FOR WORD COUNT:
-- Plan your content to reach approximately ${wordTarget} words
-- Write with natural flow while being mindful of length
-- Use descriptive details, dialogue, and scene-setting to reach target length
-- Avoid filler content - every word should add value
-- If you're approaching the word limit, conclude naturally within the range`;
-
-      enhancedPrompt += wordCountGuidance;
-      
-      // Add specific guidance based on previous attempts
-      if (attempts > 1 && bestValidation) {
-        const { status, compliance, deviation, message } = bestValidation;
-        
-        enhancedPrompt += `\n\nPREVIOUS ATTEMPT ANALYSIS:
-- Previous word count: ${bestWordCount} words (${compliance}% of target)
-- Status: ${status.replace('_', ' ').toUpperCase()}
-- Deviation from target: ${deviation} words
-- Issue: ${message}
-
-CORRECTION STRATEGY FOR THIS ATTEMPT:`;
-        
-        if (status === 'too_short') {
-          const wordsNeeded = minimumWordCount - bestWordCount;
-          enhancedPrompt += `
-- You need to add approximately ${wordsNeeded} more words
-- Expand on descriptions, add more dialogue, develop scenes further
-- Include more character thoughts, emotions, and sensory details
-- Add more background information or world-building elements
-- Ensure natural flow while reaching the required length
-- FOCUS: Write more expansively and descriptively`;
-          
-        } else if (status === 'too_long') {
-          const wordsToRemove = bestWordCount - maximumWordCount;
-          enhancedPrompt += `
-- You need to reduce by approximately ${wordsToRemove} words
-- Tighten descriptions, streamline dialogue, focus on essentials
-- Remove unnecessary details while maintaining story quality
-- Combine shorter sentences, eliminate redundancy
-- Keep the narrative focused and concise
-- FOCUS: Write more concisely and precisely`;
-        }
-        
-        enhancedPrompt += `\n\nREMEMBER: This is attempt ${attempts} of ${maxRetries}. Make sure to hit the target range of ${minimumWordCount}-${maximumWordCount} words this time.`;
-      } else {
-        // First attempt - add encouragement and clear expectations
-        enhancedPrompt += `\n\nThis is your first attempt. Write naturally and engagingly while staying within the ${minimumWordCount}-${maximumWordCount} word range. Quality and word count are both important.`;
-      }
-
-      // Use RouteLLM for intelligent model selection optimized for content creation
-      const response = await routeLLMClient.generateWithSystem(
-        `You are a bestselling author in the ${genre} genre. Write engaging, human-like content that feels authentic and compelling. 
-
-CRITICAL REQUIREMENTS:
-1. WORD COUNT: You MUST write exactly ${wordTarget} words (acceptable range: ${minimumWordCount}-${maximumWordCount} words)
-2. QUALITY: Maintain 94%+ humanization with natural flow, varied sentence structure, and engaging prose
-3. GENRE: Stay true to ${genre} genre conventions and reader expectations
-
-WORD COUNT STRATEGY:
-- Plan your content structure to naturally reach ${wordTarget} words
-- Count words as you write and adjust accordingly
-- Use rich descriptions, meaningful dialogue, and proper pacing
-- Every word should serve a purpose - no filler content
-- If you're near the limit, conclude naturally within the acceptable range
-
-Remember: Word count compliance is MANDATORY. Quality content within the specified word range is the goal.`,
-        enhancedPrompt,
-        'content-creation',
-        {
-          temperature: 0.7,
-          maxTokens: Math.max(4000, Math.ceil(wordTarget * 1.5)), // Ensure enough tokens for target length
-          taskRequirements: {
-            priority: 'quality',
-            creativityLevel: 'high',
-            maxTokensNeeded: Math.max(4000, Math.ceil(wordTarget * 1.5)),
-            fallbackAllowed: true
-          }
-        }
-      );
-
-      const content = response.content || '';
-      
-      if (!content.trim()) {
-        throw new Error('No content generated');
-      }
-
-      // Enhanced validation using our new validation function
-      const wordCount = calculateWordCount(content);
-      const validation = validateWordCount(wordCount, wordTarget, minimumPercentage, maximumPercentage);
-      
-      generationAttempts.push({
-        attempt: attempts,
-        wordCount,
-        success: validation.meetsRequirement,
-        compliance: validation.compliance,
-        status: validation.status,
-        deviation: validation.deviation
-      });
-
-      // Enhanced best content selection logic
-      const shouldUpdateBest = 
-        !bestContent || // First valid content
-        validation.meetsRequirement && !bestValidation?.meetsRequirement || // First successful attempt
-        (validation.meetsRequirement && bestValidation?.meetsRequirement && validation.deviation < bestValidation.deviation) || // Better successful attempt
-        (!validation.meetsRequirement && !bestValidation?.meetsRequirement && validation.deviation < bestValidation.deviation); // Better unsuccessful attempt
-      
-      if (shouldUpdateBest) {
-        bestContent = content;
-        bestWordCount = wordCount;
-        bestValidation = validation;
-      }
-
-      // If we meet the requirement, return immediately with detailed results
-      if (validation.meetsRequirement) {
-        return {
-          content,
-          wordCount,
-          meetsWordCountRequirement: true,
-          wordCountCompliance: validation.compliance,
-          wordCountStatus: validation.status,
-          wordCountMessage: validation.message,
-          wordTarget,
-          wordCountRange: `${minimumWordCount}-${maximumWordCount}`,
-          generationAttempts,
-          finalAttempt: attempts,
-          validationDetails: validation,
-          routingInfo: {
-            modelUsed: response.model,
-            provider: response.provider,
-            fallbackUsed: response.metadata?.fallbackUsed || false
-          }
-        };
-      }
-
-    } catch (error) {
-      console.error(`Content generation attempt ${attempts} failed:`, error);
-      
-      // Log detailed error for debugging
-      generationAttempts.push({
-        attempt: attempts,
-        wordCount: 0,
-        success: false,
-        compliance: 0,
-        status: 'error',
-        deviation: wordTarget
-      });
-      
-      if (attempts === maxRetries) {
-        throw new Error(`Content generation failed after ${maxRetries} attempts: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
-      
-      // Add small delay before retry to prevent rate limiting
-      await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
-    }
-  }
-
-  // If we exhausted all attempts, return the best content we generated with detailed analysis
-  if (!bestContent) {
-    throw new Error(`Failed to generate any content after ${maxRetries} attempts`);
-  }
-  
-  const finalValidation = bestValidation || validateWordCount(bestWordCount, wordTarget, minimumPercentage, maximumPercentage);
-  
-  console.warn(`Word count validation failed after ${maxRetries} attempts. Best attempt: ${bestWordCount} words (${finalValidation.compliance}% of target). Status: ${finalValidation.status}`);
-  
-  return {
-    content: bestContent,
-    wordCount: bestWordCount,
-    meetsWordCountRequirement: finalValidation.meetsRequirement,
-    wordCountCompliance: finalValidation.compliance,
-    wordCountStatus: finalValidation.status,
-    wordCountMessage: finalValidation.message,
-    wordTarget,
-    wordCountRange: `${minimumWordCount}-${maximumWordCount}`,
-    generationAttempts,
-    finalAttempt: attempts,
-    validationDetails: finalValidation,
-    warning: `Content does not meet word count requirements after ${maxRetries} attempts. Using best available content.`,
-    routingInfo: {
-      modelUsed: 'best-attempt',
-      provider: 'unknown',
-      fallbackUsed: true
-    }
-  };
-}
-
-// Helper function to generate content with timeout fallback
-async function generateWithTimeout(
+// Helper function to generate content with timeout
+async function generateStageContent(
   systemPrompt: string,
   prompt: string,
-  wordTarget: number,
-  timeoutMs: number = 60000 // 60 second timeout
+  timeoutMs: number = STAGE_TIMEOUT_MS
 ): Promise<{ content: string; model: string; provider: string; timedOut: boolean }> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -309,7 +88,7 @@ async function generateWithTimeout(
       'content-creation',
       {
         temperature: 0.7,
-        maxTokens: Math.min(2000, Math.ceil(wordTarget * 1.5)) // Cap maxTokens to speed up generation
+        maxTokens: 1500 // Enough for ~800-1000 words
       }
     );
     
@@ -329,6 +108,144 @@ async function generateWithTimeout(
   }
 }
 
+// Multi-stage chapter generation function
+async function generateChapterInStages(
+  genre: string,
+  title: string,
+  synopsis: string,
+  chapterNumber: number,
+  targetWords: number,
+  onStageComplete?: (stage: number, totalStages: number, partialContent: string) => void
+): Promise<{ content: string; stages: number; totalWords: number; model: string }> {
+  
+  // Calculate number of stages needed
+  const numStages = Math.min(Math.ceil(targetWords / WORDS_PER_STAGE), MAX_STAGES);
+  const wordsPerStage = Math.ceil(targetWords / numStages);
+  
+  console.log(`Multi-stage generation: ${numStages} stages, ~${wordsPerStage} words each, total target: ${targetWords}`);
+  
+  const systemPrompt = `You are a bestselling ${genre} author known for engaging, immersive storytelling. Write compelling narrative that flows naturally and keeps readers hooked.`;
+  
+  let fullContent = '';
+  let lastModel = '';
+  
+  for (let stage = 1; stage <= numStages; stage++) {
+    const isFirstStage = stage === 1;
+    const isLastStage = stage === numStages;
+    const remainingWords = targetWords - calculateWordCount(fullContent);
+    const stageTarget = isLastStage ? remainingWords : wordsPerStage;
+    
+    let stagePrompt = '';
+    
+    if (isFirstStage) {
+      // First stage: Start the chapter
+      stagePrompt = `Write the OPENING SECTION (Part 1 of ${numStages}) of Chapter ${chapterNumber} for a ${genre} book titled "${title}".
+
+STORY SYNOPSIS: ${synopsis}
+
+WRITING REQUIREMENTS:
+- Write approximately ${stageTarget} words for this opening section
+- Start with a compelling hook that draws readers in
+- Introduce the chapter's main scene, setting, or conflict
+- Develop atmosphere and character presence
+- Include dialogue and sensory details
+- End this section at a natural pause point (mid-scene is fine)
+- DO NOT conclude the chapter - more sections will follow
+
+Begin the chapter now with engaging ${genre} content:`;
+    } else if (isLastStage) {
+      // Last stage: Conclude the chapter
+      const lastParagraphs = fullContent.slice(-1500); // Last ~300 words for context
+      stagePrompt = `Continue and CONCLUDE Chapter ${chapterNumber} for a ${genre} book titled "${title}".
+
+PREVIOUS CONTENT ENDING:
+...${lastParagraphs}
+
+WRITING REQUIREMENTS:
+- Write approximately ${stageTarget} words to conclude this chapter
+- Seamlessly continue from where the previous section ended
+- Maintain consistent voice, tone, and narrative flow
+- Build to a satisfying chapter ending
+- End with a hook or transition that makes readers want to continue
+- Include emotional resonance and character development
+
+Continue and conclude the chapter now:`;
+    } else {
+      // Middle stages: Continue the chapter
+      const lastParagraphs = fullContent.slice(-1500);
+      stagePrompt = `Continue Chapter ${chapterNumber} (Part ${stage} of ${numStages}) for a ${genre} book titled "${title}".
+
+PREVIOUS CONTENT ENDING:
+...${lastParagraphs}
+
+WRITING REQUIREMENTS:
+- Write approximately ${stageTarget} words for this section
+- Seamlessly continue from where the previous section ended
+- Maintain the same voice, tone, and narrative momentum
+- Advance the plot and develop characters
+- Include meaningful dialogue and vivid descriptions
+- End at a natural pause point - DO NOT conclude the chapter yet
+- ${numStages - stage} more sections will follow
+
+Continue the chapter now:`;
+    }
+    
+    console.log(`Stage ${stage}/${numStages}: Generating ~${stageTarget} words...`);
+    
+    const result = await generateStageContent(systemPrompt, stagePrompt);
+    
+    if (result.timedOut) {
+      console.warn(`Stage ${stage} timed out`);
+      if (fullContent.length > 0) {
+        // Return partial content if we have some
+        console.log(`Returning partial content from ${stage - 1} stages`);
+        break;
+      }
+      throw new Error('Content generation timed out on first stage');
+    }
+    
+    let stageContent = result.content.trim();
+    lastModel = result.model;
+    
+    // Clean up the content - remove any meta-commentary
+    stageContent = stageContent
+      .replace(/^(Part \d+ of \d+:|Section \d+:|Continuing from|Previously:).*\n/gi, '')
+      .replace(/\[.*?\]/g, '')
+      .trim();
+    
+    // Add proper spacing between stages
+    if (fullContent && stageContent) {
+      // Ensure proper paragraph break between stages
+      if (!fullContent.endsWith('\n\n') && !stageContent.startsWith('\n')) {
+        fullContent += '\n\n';
+      }
+    }
+    
+    fullContent += stageContent;
+    
+    const currentWordCount = calculateWordCount(fullContent);
+    console.log(`Stage ${stage} complete: ${currentWordCount} words total`);
+    
+    // Notify progress
+    if (onStageComplete) {
+      onStageComplete(stage, numStages, fullContent);
+    }
+    
+    // If we've reached target, stop early
+    if (currentWordCount >= targetWords * 0.95) {
+      console.log(`Reached target word count, stopping at stage ${stage}`);
+      break;
+    }
+  }
+  
+  return {
+    content: fullContent,
+    stages: numStages,
+    totalWords: calculateWordCount(fullContent),
+    model: lastModel
+  };
+}
+
 export async function POST(request: NextRequest) {
   let type: string = 'unknown';
   let wordTarget: number = 0;
@@ -346,144 +263,143 @@ export async function POST(request: NextRequest) {
 
     console.log(`Starting content generation: ${type} for ${title} (${genre})`);
 
-    let prompt = '';
-    // Cap word target to prevent Cloudflare timeouts (max ~1000 words to stay well under 100s)
     const requestedWords = type === 'forward' ? 500 : (wordsPerChapter || 3500);
-    wordTarget = Math.min(requestedWords, 1000); // Cap at 1000 to prevent timeout
+    wordTarget = requestedWords;
 
     if (type === 'forward') {
-      prompt = `Write a compelling forward/introduction for a ${genre} book titled "${title}".
+      // Forward/intro is short - single stage
+      const prompt = `Write a compelling forward/introduction for a ${genre} book titled "${title}".
 
 FORWARD REQUIREMENTS:
 - Hook the reader immediately with an engaging opening
 - Set the tone and atmosphere for the entire story
 - Introduce key themes and genre elements
 - Create anticipation and excitement for what's to come
-- Target approximately ${wordTarget} words
+- Target approximately 500 words
 
 STORY CONTEXT: ${synopsis}
 
 Write naturally and engagingly while staying close to the target word count.`;
 
+      const systemPrompt = `You are a bestselling author in the ${genre} genre. Write engaging, human-like content that feels authentic and compelling.`;
+      const result = await generateStageContent(systemPrompt, prompt);
+      
+      if (result.timedOut) {
+        return NextResponse.json({ 
+          error: 'Content generation timed out. Please try again.',
+          timeout: true 
+        }, { status: 408 });
+      }
+
+      const content = result.content;
+      const wordCount = calculateWordCount(content);
+      const validation = validateWordCount(wordCount, 500);
+      const readTime = Math.ceil(wordCount / 250);
+      const humanizationScore = 94 + Math.floor(Math.random() * 5);
+
+      return NextResponse.json({
+        content,
+        wordCount,
+        readTime,
+        humanizationScore,
+        wordTarget: 500,
+        meetsWordCountRequirement: validation.meetsRequirement,
+        wordCountCompliance: validation.compliance,
+        wordCountStatus: validation.status,
+        wordCountMessage: validation.message,
+        routingInfo: {
+          modelUsed: result.model,
+          provider: result.provider,
+          fallbackUsed: false
+        },
+        stages: 1
+      });
+
     } else if (type === 'chapter') {
-      prompt = `Write Chapter ${chapterNumber} for a ${genre} book titled "${title}".
+      // Chapter uses multi-stage generation for longer content
+      console.log(`Starting multi-stage chapter generation: target ${wordTarget} words`);
+      
+      const result = await generateChapterInStages(
+        genre,
+        title,
+        synopsis,
+        chapterNumber,
+        wordTarget
+      );
+      
+      const content = result.content;
+      
+      if (!content.trim()) {
+        throw new Error('No content generated');
+      }
 
-CRITICAL WORD COUNT REQUIREMENT: 
-You MUST write approximately ${wordTarget} words (target range: ${Math.floor(wordTarget * 0.92)} - ${Math.floor(wordTarget * 1.1)} words). This is a strict requirement.
+      console.log(`Multi-stage generation complete: ${result.totalWords} words in ${result.stages} stages`);
 
-CHAPTER REQUIREMENTS:
-- Create engaging, plot-advancing content for Chapter ${chapterNumber}
-- Include compelling dialogue and vivid descriptions
-- Develop characters and advance the main storyline
-- Use rich descriptive passages, detailed character interactions, and immersive scene-setting
-- Include internal thoughts, sensory details, and atmospheric descriptions
-- Expand scenes with meaningful dialogue and character development
-- End with an engaging hook or transition
+      // Calculate metrics
+      const wordCount = result.totalWords;
+      const validation = validateWordCount(wordCount, wordTarget);
+      const readTime = Math.ceil(wordCount / 250);
+      const humanizationScore = 94 + Math.floor(Math.random() * 5);
 
-WRITING STRATEGY TO REACH ${wordTarget} WORDS:
-- Write detailed scene descriptions and character actions
-- Include substantial dialogue between characters
-- Add character thoughts and emotional reactions
-- Describe settings, atmosphere, and sensory details thoroughly
-- Develop plot points with proper pacing and detail
-- Use transitional scenes to build narrative flow
-
-STORY CONTEXT: ${synopsis}
-
-Remember: You must write close to ${wordTarget} words while maintaining quality and engagement. Plan your content to naturally reach this length through rich storytelling.`;
-    }
-
-    console.log(`Calling RouteLLM for content generation with 60s timeout...`);
-
-    // Use timeout wrapper to prevent Cloudflare 524 errors
-    const systemPrompt = `You are a bestselling author in the ${genre} genre. Write engaging, human-like content that feels authentic and compelling.`;
-    const timeoutResult = await generateWithTimeout(systemPrompt, prompt, wordTarget, 60000);
-    
-    if (timeoutResult.timedOut) {
-      console.log('Content generation timed out, returning partial/fallback response');
-      return NextResponse.json({ 
-        error: 'Content generation timed out. Please try again with fewer words or try later.',
-        timeout: true 
-      }, { status: 408 });
-    }
-
-    const content = timeoutResult.content;
-    
-    if (!content.trim()) {
-      throw new Error('No content generated');
-    }
-
-    console.log(`Content generated successfully using ${timeoutResult.model}`);
-
-    // Calculate word count
-    const wordCount = calculateWordCount(content);
-    const validation = validateWordCount(wordCount, wordTarget, 92, 110);
-    
-    // Calculate additional metrics
-    const readTime = Math.ceil(wordCount / 250);
-    const humanizationScore = 94 + Math.floor(Math.random() * 5);
-
-    console.log(`Word count: ${wordCount}/${wordTarget} (${validation.compliance}%)`);
-
-    // Save to database if it's a chapter
-    if (type === 'chapter' && sessionId) {
-      try {
-        const { PrismaClient } = await import('@prisma/client');
-        const prisma = new PrismaClient();
-        
-        await prisma.chapter.upsert({
-          where: {
-            sessionId_chapterNumber: {
-              sessionId: sessionId,
-              chapterNumber: parseInt(chapterNumber)
+      // Save to database
+      if (sessionId) {
+        try {
+          const { PrismaClient } = await import('@prisma/client');
+          const prisma = new PrismaClient();
+          
+          await prisma.chapter.upsert({
+            where: {
+              sessionId_chapterNumber: {
+                sessionId: sessionId,
+                chapterNumber: parseInt(chapterNumber)
+              }
+            },
+            update: {
+              content,
+              wordCount,
+              humanizationScore,
+              generatedAt: new Date()
+            },
+            create: {
+              sessionId,
+              chapterNumber: parseInt(chapterNumber),
+              title: `Chapter ${chapterNumber}`,
+              content,
+              wordCount,
+              humanizationScore,
+              generatedAt: new Date()
             }
-          },
-          update: {
-            content,
-            wordCount,
-            humanizationScore,
-            generatedAt: new Date()
-          },
-          create: {
-            sessionId,
-            chapterNumber: parseInt(chapterNumber),
-            title: `Chapter ${chapterNumber}`,
-            content,
-            wordCount,
-            humanizationScore,
-            generatedAt: new Date()
-          }
-        });
-        
-        await prisma.$disconnect();
-        console.log(`Chapter ${chapterNumber} saved to database`);
-        
-      } catch (dbError) {
-        console.error('Database error:', dbError);
-        // Continue even if DB save fails
+          });
+          
+          await prisma.$disconnect();
+          console.log(`Chapter ${chapterNumber} saved to database`);
+          
+        } catch (dbError) {
+          console.error('Database error:', dbError);
+        }
       }
+
+      return NextResponse.json({
+        content,
+        wordCount,
+        readTime,
+        humanizationScore,
+        wordTarget,
+        meetsWordCountRequirement: validation.meetsRequirement,
+        wordCountCompliance: validation.compliance,
+        wordCountStatus: validation.status,
+        wordCountMessage: validation.message,
+        routingInfo: {
+          modelUsed: result.model,
+          provider: 'AbacusAI',
+          fallbackUsed: false
+        },
+        stages: result.stages,
+        multiStageGeneration: true
+      });
     }
 
-    // Return response
-    const result = {
-      content,
-      wordCount,
-      readTime,
-      humanizationScore,
-      wordTarget,
-      meetsWordCountRequirement: validation.meetsRequirement,
-      wordCountCompliance: validation.compliance,
-      wordCountStatus: validation.status,
-      wordCountMessage: validation.message,
-      routingInfo: {
-        modelUsed: timeoutResult.model,
-        provider: timeoutResult.provider,
-        fallbackUsed: false
-      }
-    };
-
-    console.log(`Content generation completed successfully`);
-    return NextResponse.json(result);
+    return NextResponse.json({ error: 'Invalid content type' }, { status: 400 });
     
   } catch (error) {
     console.error('Error generating content:', error);

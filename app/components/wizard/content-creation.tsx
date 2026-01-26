@@ -57,7 +57,7 @@ export function ContentCreation({
         <div className="inline-flex items-center gap-2 px-4 py-2 bg-teal-500/10 border border-teal-500/20 rounded-lg">
           <Target className="w-4 h-4 text-teal-400" />
           <span className="text-sm text-teal-300">
-            Quality Guarantee: Each chapter meets 92%-110% of target word count & 94%+ humanization
+            Multi-Stage Generation: Longer chapters built in stages for quality & reliability
           </span>
         </div>
       </div>
@@ -240,6 +240,11 @@ export function ContentCreation({
                                  chapter.wordCountStatus === 'too_long' ? '✂️' : '⚠'} 
                                 {chapter.wordCountCompliance}% 
                                 {chapter.wordCountRange && ` (target: ${chapter.wordCountRange})`}
+                              </Badge>
+                            )}
+                            {chapter.stages && chapter.stages > 1 && (
+                              <Badge variant="outline" className="text-xs text-blue-400 border-blue-500/50">
+                                {chapter.stages} stages
                               </Badge>
                             )}
                             {chapter.finalAttempt && chapter.finalAttempt > 1 && (

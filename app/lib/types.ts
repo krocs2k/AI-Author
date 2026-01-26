@@ -49,6 +49,7 @@ export interface Chapter {
     message: string;
   };
   warning?: string;
+  stages?: number; // Number of generation stages used
 }
 
 export interface BookMetrics {
