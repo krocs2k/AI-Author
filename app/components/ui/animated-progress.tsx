@@ -200,6 +200,18 @@ export const PROGRESS_CONFIGS = {
       { id: 'pacing', label: 'Optimizing pacing', status: 'pending' as const },
     ],
   },
+  characterGeneration: {
+    title: 'Creating Characters',
+    icon: 'content' as const,
+    steps: [
+      { id: 'analyze', label: 'Analyzing genre requirements', status: 'pending' as const },
+      { id: 'protagonist', label: 'Developing protagonist(s)', status: 'pending' as const },
+      { id: 'antagonist', label: 'Creating antagonist(s)', status: 'pending' as const },
+      { id: 'supporting', label: 'Building supporting cast', status: 'pending' as const },
+      { id: 'relationships', label: 'Establishing relationships', status: 'pending' as const },
+      { id: 'finalize', label: 'Finalizing character profiles', status: 'pending' as const },
+    ],
+  },
   contentGeneration: {
     title: 'Writing Chapter',
     icon: 'content' as const,

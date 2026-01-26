@@ -59,6 +59,51 @@ export interface BookMetrics {
   successProbability: number;
 }
 
+// Character types based on industry standards
+export type CharacterRole = 'protagonist' | 'antagonist' | 'supporting' | 'minor' | 'mentor' | 'love_interest' | 'sidekick' | 'foil';
+
+export interface Character {
+  id: string;
+  name: string;
+  role: CharacterRole;
+  age?: string;
+  gender?: string;
+  occupation?: string;
+  physicalDescription: string;
+  personality: string[];
+  backstory: string;
+  motivation: string;
+  arc: string; // Character development arc
+  relationships: Array<{
+    characterId?: string;
+    characterName: string;
+    relationship: string;
+  }>;
+  keyTraits: string[];
+  flaws: string[];
+  strengths: string[];
+  voiceStyle?: string; // How they speak/their dialogue style
+  generatedAt?: Date;
+}
+
+export interface CharacterRecommendations {
+  genre: string;
+  totalRecommended: number;
+  breakdown: {
+    protagonists: number;
+    antagonists: number;
+    supporting: number;
+    minor: number;
+  };
+  reasoning: string;
+  topBooksReference: Array<{
+    title: string;
+    characterCount: number;
+    mainCharacters: number;
+  }>;
+  genreSpecificTips: string[];
+}
+
 export interface GenreAnalysis {
   topBooks: Array<{
     title: string;
@@ -108,6 +153,8 @@ export interface BookSession {
   generatedTitles?: BookTitle[];
   plannedChapters?: number;
   wordsPerChapter?: number;
+  characterRecommendations?: CharacterRecommendations;
+  characters?: Character[];
   forward?: string;
   forwardWordCount?: number;
   chapters?: Chapter[];

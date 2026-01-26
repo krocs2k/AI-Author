@@ -5,11 +5,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { BookSession, WizardStep, Synopsis, BookTitle, Chapter, BookMetrics } from '@/lib/types';
+import { BookSession, WizardStep, Synopsis, BookTitle, Chapter, BookMetrics, Character, CharacterRecommendations, CharacterRole } from '@/lib/types';
 import { ProgressBar } from './wizard/progress-bar';
 import { GenreSelection } from './wizard/genre-selection';
 import { SynopsisGeneration } from './wizard/synopsis-generation';
 import { TitlePlanning } from './wizard/title-planning';
+import { CharacterGeneration } from './wizard/character-generation';
 import { ContentCreation } from './wizard/content-creation';
 import { MarketingFinalization } from './wizard/marketing-finalization';
 import { AnimatedProgress, PROGRESS_CONFIGS, ProgressStep } from './ui/animated-progress';
@@ -22,8 +23,9 @@ const WIZARD_STEPS: WizardStep[] = [
   { id: 1, title: 'Genre', description: 'Select your book genre', completed: false },
   { id: 2, title: 'Synopsis', description: 'Generate book concepts', completed: false },
   { id: 3, title: 'Title & Plan', description: 'Choose title and structure', completed: false },
-  { id: 4, title: 'Content', description: 'Write your book', completed: false },
-  { id: 5, title: 'Marketing', description: 'Create marketing assets', completed: false },
+  { id: 4, title: 'Characters', description: 'Create your cast', completed: false },
+  { id: 5, title: 'Content', description: 'Write your book', completed: false },
+  { id: 6, title: 'Marketing', description: 'Create marketing assets', completed: false },
 ];
 
 export default function AIAuthorWizard() {
@@ -381,12 +383,170 @@ export default function AIAuthorWizard() {
     updateSession({ wordsPerChapter: words });
   };
 
-  const handlePlanningNext = () => {
+  const handlePlanningNext = async () => {
+    // Automatically fetch character recommendations when moving to characters step
+    setIsLoading(prev => ({ ...prev, recommendations: true }));
+    
+    try {
+      const response = await fetch('/api/generate-characters', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'getRecommendations',
+          genre: session.selectedGenre
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.recommendations) {
+          setSession(prev => ({ ...prev, characterRecommendations: data.recommendations }));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch character recommendations:', error);
+    } finally {
+      setIsLoading(prev => ({ ...prev, recommendations: false }));
+    }
+    
     updateSession({ currentStep: 4 });
     setCurrentStep(4);
   };
 
-  // Step 4: Content Creation
+  // Step 4: Character Generation
+  const handleFetchCharacterRecommendations = async () => {
+    setIsLoading(prev => ({ ...prev, recommendations: true }));
+    
+    try {
+      const response = await fetch('/api/generate-characters', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'getRecommendations',
+          genre: session.selectedGenre
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.recommendations) {
+          setSession(prev => ({ ...prev, characterRecommendations: data.recommendations }));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch character recommendations:', error);
+    } finally {
+      setIsLoading(prev => ({ ...prev, recommendations: false }));
+    }
+  };
+
+  const handleGenerateCharacters = async (config: { protagonists: number; antagonists: number; supporting: number; minor: number }) => {
+    setIsLoading(prev => ({ ...prev, characters: true }));
+    startProgress('characterGeneration');
+    
+    try {
+      advanceProgress('Analyzing genre requirements');
+      
+      const bookTitle = session.selectedTitle || session.customTitle;
+      const bookSynopsis = session.selectedSynopsis;
+      const bookGenre = session.selectedGenre;
+      
+      if (!bookTitle || !bookSynopsis || !bookGenre) {
+        throw new Error('Missing required data: title, synopsis, or genre');
+      }
+      
+      advanceProgress('Developing protagonist(s)');
+      
+      const response = await fetch('/api/generate-characters', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'generateCharacters',
+          genre: bookGenre,
+          synopsis: bookSynopsis,
+          title: bookTitle,
+          characterConfig: config
+        }),
+      });
+      
+      advanceProgress('Creating antagonist(s)');
+      await new Promise(r => setTimeout(r, 300));
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      advanceProgress('Building supporting cast');
+      await new Promise(r => setTimeout(r, 300));
+      
+      if (!data.success || !data.characters) {
+        throw new Error(data.error || 'Failed to generate characters');
+      }
+      
+      advanceProgress('Establishing relationships');
+      await new Promise(r => setTimeout(r, 200));
+      
+      advanceProgress('Finalizing character profiles');
+      await new Promise(r => setTimeout(r, 200));
+      
+      console.log(`Generated ${data.characters.length} characters successfully`);
+      
+      setSession(prev => ({ ...prev, characters: data.characters }));
+      completeProgress();
+      
+    } catch (error) {
+      console.error('Character generation failed:', error);
+      hideProgress();
+    } finally {
+      setIsLoading(prev => ({ ...prev, characters: false }));
+    }
+  };
+
+  const handleAddCharacter = async (role: CharacterRole) => {
+    setIsLoading(prev => ({ ...prev, addCharacter: true }));
+    
+    try {
+      const bookTitle = session.selectedTitle || session.customTitle;
+      const bookSynopsis = session.selectedSynopsis;
+      const bookGenre = session.selectedGenre;
+      
+      const response = await fetch('/api/generate-characters', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'generateSingle',
+          genre: bookGenre,
+          synopsis: bookSynopsis,
+          title: bookTitle,
+          role: role,
+          existingCharacters: session.characters || []
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.character) {
+          setSession(prev => ({
+            ...prev,
+            characters: [...(prev.characters || []), data.character]
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to add character:', error);
+    } finally {
+      setIsLoading(prev => ({ ...prev, addCharacter: false }));
+    }
+  };
+
+  const handleCharactersNext = () => {
+    updateSession({ currentStep: 5 });
+    setCurrentStep(5);
+  };
+
+  // Step 5: Content Creation
   const handleGenerateForward = async () => {
     setIsLoading({ forward: true });
     startProgress('contentGeneration');
@@ -612,11 +772,11 @@ export default function AIAuthorWizard() {
   };
 
   const handleContentNext = () => {
-    updateSession({ currentStep: 5 });
-    setCurrentStep(5);
+    updateSession({ currentStep: 6 });
+    setCurrentStep(6);
   };
 
-  // Step 5: Marketing
+  // Step 6: Marketing
   const handleGenerateCoverPrompts = async () => {
     setIsLoading({ covers: true });
     startProgress('marketingGeneration');
@@ -842,6 +1002,21 @@ export default function AIAuthorWizard() {
           )}
           
           {currentStep === 4 && (
+            <CharacterGeneration
+              genre={session.selectedGenre}
+              title={session.selectedTitle || session.customTitle}
+              synopsis={session.selectedSynopsis}
+              recommendations={session.characterRecommendations}
+              characters={session.characters}
+              onFetchRecommendations={handleFetchCharacterRecommendations}
+              onGenerateCharacters={handleGenerateCharacters}
+              onAddCharacter={handleAddCharacter}
+              onNext={handleCharactersNext}
+              isLoading={isLoading}
+            />
+          )}
+          
+          {currentStep === 5 && (
             <ContentCreation
               title={session.selectedTitle || session.customTitle}
               forward={session.forward}
@@ -858,7 +1033,7 @@ export default function AIAuthorWizard() {
             />
           )}
           
-          {currentStep === 5 && (
+          {currentStep === 6 && (
             <MarketingFinalization
               title={session.selectedTitle || session.customTitle}
               metrics={metrics}
