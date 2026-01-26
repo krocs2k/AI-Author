@@ -165,15 +165,21 @@ export default function AIAuthorWizard() {
   };
 
   const handleGenreNext = async () => {
-    if (!session.selectedGenre) return;
+    if (!session.selectedGenre) {
+      console.error('No genre selected');
+      return;
+    }
     
     setIsLoading({ genre: true });
     startProgress('genreAnalysis');
     
     try {
       // Step 1: Initialize
-      await new Promise(r => setTimeout(r, 800));
+      advanceProgress('Initializing AI analysis');
+      await new Promise(r => setTimeout(r, 500));
       advanceProgress('Fetching bestseller data');
+      
+      console.log('Starting genre analysis for:', session.selectedGenre);
       
       // Step 2: MojoSauce analysis
       const response = await fetch('/api/analyze-genre', {
@@ -183,27 +189,60 @@ export default function AIAuthorWizard() {
       });
       
       advanceProgress('Analyzing author techniques');
-      await new Promise(r => setTimeout(r, 600));
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Genre analysis API error:', response.status, errorText);
+        throw new Error(`API error: ${response.status}`);
+      }
       
       const analysis = await response.json();
+      console.log('Genre analysis received:', { 
+        hasMojoSauce: !!analysis.mojoSauce, 
+        hasSecretSauce: !!analysis.secretSauce 
+      });
       
       // Step 3: SecretSauce
       advanceProgress('Compiling insights');
-      await new Promise(r => setTimeout(r, 400));
+      await new Promise(r => setTimeout(r, 300));
       
-      await updateSession({
+      // Validate that we have the required data
+      if (!analysis.mojoSauce || !analysis.secretSauce) {
+        console.error('Invalid analysis response - missing mojoSauce or secretSauce');
+        throw new Error('Invalid analysis response');
+      }
+      
+      // Update session state directly first for immediate UI update
+      setSession(prev => ({
+        ...prev,
         genreAnalysis: analysis.mojoSauce,
         authorAnalysis: analysis.secretSauce,
         currentStep: 2,
-      });
+      }));
+      
+      // Then persist to backend
+      if (sessionId) {
+        fetch('/api/session', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            sessionId,
+            genreAnalysis: analysis.mojoSauce,
+            authorAnalysis: analysis.secretSauce,
+            currentStep: 2,
+          }),
+        }).catch(err => console.error('Session sync error:', err));
+      }
       
       completeProgress();
       setCurrentStep(2);
+      console.log('Genre analysis complete, moving to step 2');
+      
     } catch (error) {
       console.error('Genre analysis failed:', error);
       hideProgress();
     } finally {
-      setIsLoading({});
+      setIsLoading({ genre: false });
     }
   };
 
