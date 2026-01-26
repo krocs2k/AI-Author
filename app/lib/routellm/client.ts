@@ -70,11 +70,15 @@ export class RouteLLMClient {
     
     // Prepare request body
     const requestBody: any = {
-      model: selectedModel.id,
       messages: request.messages,
       temperature: request.temperature || 0.7,
       max_tokens: Math.min(request.maxTokens || 4000, selectedModel.maxTokens)
     };
+    
+    // Only add model if it's not route-llm (route-llm uses automatic routing when model is omitted)
+    if (selectedModel.id !== 'route-llm') {
+      requestBody.model = selectedModel.id;
+    }
     
     // Add response format if specified
     if (request.responseFormat) {
@@ -106,7 +110,7 @@ export class RouteLLMClient {
     // Return structured response
     return {
       content,
-      model: selectedModel.id,
+      model: data.model || selectedModel.id,
       provider: selectedProvider.name,
       usage: data.usage || undefined,
       metadata: {

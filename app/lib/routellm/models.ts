@@ -2,45 +2,27 @@
 import { LLMModel, ModelCapabilities } from './types';
 
 // Define available models through AbacusAI endpoint
-// Using correct model identifiers for the RouteLLM API
+// Using route-llm for automatic model routing (primary) and gpt-5.1 as explicit fallback
 export const AVAILABLE_MODELS: LLMModel[] = [
-  // Llama 4 (Primary model for creative content generation)
+  // Route-LLM (Primary - automatic intelligent routing)
   {
-    id: 'llama4',
-    name: 'Llama 4',
+    id: 'route-llm',
+    name: 'Route LLM (Auto)',
     provider: 'abacusai',
     capabilities: {
-      creative: 96,
-      analytical: 88,
-      technical: 85,
+      creative: 95,
+      analytical: 95,
+      technical: 92,
       conversational: 95,
-      longForm: 97,
-      structured: 88
+      longForm: 95,
+      structured: 94
     },
     costTier: 'medium',
-    qualityScore: 96,
+    qualityScore: 95,
     maxTokens: 16384,
     contextWindow: 128000
   },
-  // GPT-5 Mini (Primary model for analysis tasks)
-  {
-    id: 'gpt-5-mini',
-    name: 'GPT-5 Mini',
-    provider: 'abacusai',
-    capabilities: {
-      creative: 85,
-      analytical: 96,
-      technical: 94,
-      conversational: 90,
-      longForm: 85,
-      structured: 96
-    },
-    costTier: 'low',
-    qualityScore: 92,
-    maxTokens: 16384,
-    contextWindow: 128000
-  },
-  // GPT-5.1 (Fallback model)
+  // GPT-5.1 (Explicit fallback model)
   {
     id: 'gpt-5.1',
     name: 'GPT-5.1',
@@ -57,64 +39,45 @@ export const AVAILABLE_MODELS: LLMModel[] = [
     qualityScore: 96,
     maxTokens: 8192,
     contextWindow: 128000
-  },
-  // Gemini 3 Pro (Fallback model)
-  {
-    id: 'gemini-3-pro',
-    name: 'Gemini 3 Pro',
-    provider: 'abacusai',
-    capabilities: {
-      creative: 92,
-      analytical: 94,
-      technical: 92,
-      conversational: 90,
-      longForm: 90,
-      structured: 94
-    },
-    costTier: 'medium',
-    qualityScore: 93,
-    maxTokens: 8192,
-    contextWindow: 1000000
   }
 ];
 
 // Task-specific model preferences
-// GPT-5 Mini for analysis tasks, Llama4 for creative content
-// Fallbacks: gpt-5.1 and gemini-3-pro
+// Using route-llm for automatic intelligent routing, gpt-5.1 as explicit fallback
 export const TASK_MODEL_PREFERENCES: Record<string, {
   primary: readonly string[];
   capabilities: readonly string[];
   reasoning: string;
 }> = {
   'genre-analysis': {
-    primary: ['gpt-5-mini', 'gpt-5.1', 'gemini-3-pro'],
+    primary: ['route-llm', 'gpt-5.1'],
     capabilities: ['analytical', 'structured'],
-    reasoning: 'Analysis tasks use GPT-5 Mini for structured reasoning'
+    reasoning: 'Analysis tasks use route-llm for optimal model selection'
   },
   'synopsis-generation': {
-    primary: ['llama4', 'gpt-5.1', 'gemini-3-pro'],
+    primary: ['route-llm', 'gpt-5.1'],
     capabilities: ['creative', 'longForm'],
-    reasoning: 'Creative writing tasks use Llama 4 for superior creative output'
+    reasoning: 'Creative writing uses route-llm for intelligent model routing'
   },
   'title-generation': {
-    primary: ['llama4', 'gpt-5.1', 'gemini-3-pro'],
+    primary: ['route-llm', 'gpt-5.1'],
     capabilities: ['creative', 'conversational'],
-    reasoning: 'Title generation uses Llama 4 for creative quality'
+    reasoning: 'Title generation uses route-llm for creative quality'
   },
   'content-creation': {
-    primary: ['llama4', 'gpt-5.1', 'gemini-3-pro'],
+    primary: ['route-llm', 'gpt-5.1'],
     capabilities: ['creative', 'longForm', 'conversational'],
-    reasoning: 'Long-form creative content uses Llama 4 as primary'
+    reasoning: 'Long-form content uses route-llm for optimal routing'
   },
   'marketing-copy': {
-    primary: ['llama4', 'gpt-5.1', 'gemini-3-pro'],
+    primary: ['route-llm', 'gpt-5.1'],
     capabilities: ['creative', 'conversational', 'structured'],
-    reasoning: 'Marketing copy uses Llama 4 for creative persuasive writing'
+    reasoning: 'Marketing copy uses route-llm for creative persuasive writing'
   },
   'general': {
-    primary: ['gpt-5-mini', 'gpt-5.1', 'gemini-3-pro'],
+    primary: ['route-llm', 'gpt-5.1'],
     capabilities: ['conversational', 'analytical'],
-    reasoning: 'General tasks default to GPT-5 Mini for balanced performance'
+    reasoning: 'General tasks use route-llm for balanced performance'
   }
 } as const;
 
