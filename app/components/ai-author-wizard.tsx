@@ -414,7 +414,7 @@ export default function AIAuthorWizard() {
   };
 
   const handleGenerateChapter = async (chapterNumber: number) => {
-    setIsLoading({ [`chapter-${chapterNumber}`]: true });
+    setIsLoading(prev => ({ ...prev, [`chapter-${chapterNumber}`]: true }));
     startProgress('contentGeneration');
     
     try {
@@ -472,7 +472,7 @@ export default function AIAuthorWizard() {
         title: `Chapter ${chapterNumber}`,
         content: content.content,
         wordCount: content.wordCount,
-        humanizationScore: content.humanizationScore,
+        humanizationScore: content.humanizationScore || 95,
         generatedAt: new Date(),
         wordTarget: content.wordTarget,
         meetsWordCountRequirement: content.meetsWordCountRequirement,
@@ -488,23 +488,40 @@ export default function AIAuthorWizard() {
       
       completeProgress();
       
-      const updatedChapters = [...(session.chapters || [])];
-      const existingIndex = updatedChapters.findIndex(c => c.chapterNumber === chapterNumber);
+      // Use functional update to avoid stale closure issues
+      setSession(prevSession => {
+        const currentChapters = prevSession.chapters || [];
+        const existingIndex = currentChapters.findIndex(c => c.chapterNumber === chapterNumber);
+        
+        let updatedChapters: Chapter[];
+        if (existingIndex >= 0) {
+          updatedChapters = [...currentChapters];
+          updatedChapters[existingIndex] = newChapter;
+        } else {
+          updatedChapters = [...currentChapters, newChapter];
+        }
+        
+        updatedChapters.sort((a, b) => a.chapterNumber - b.chapterNumber);
+        
+        const updatedSession = { ...prevSession, chapters: updatedChapters };
+        
+        // Fire and forget the API update (chapter is already saved in database by generate-content)
+        if (sessionId) {
+          fetch('/api/session', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionId }),
+          }).catch(err => console.error('Session sync error:', err));
+        }
+        
+        return updatedSession;
+      });
       
-      if (existingIndex >= 0) {
-        updatedChapters[existingIndex] = newChapter;
-      } else {
-        updatedChapters.push(newChapter);
-      }
-      
-      updatedChapters.sort((a, b) => a.chapterNumber - b.chapterNumber);
-      
-      await updateSession({ chapters: updatedChapters });
     } catch (error) {
       console.error('Chapter generation failed:', error);
       hideProgress();
     } finally {
-      setIsLoading({ ...isLoading, [`chapter-${chapterNumber}`]: false });
+      setIsLoading(prev => ({ ...prev, [`chapter-${chapterNumber}`]: false }));
     }
   };
 

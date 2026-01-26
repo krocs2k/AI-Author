@@ -47,15 +47,25 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const { sessionId, ...updateData } = await request.json();
+    const { sessionId, chapters, ...updateData } = await request.json();
 
     if (!sessionId) {
       return NextResponse.json({ error: 'Session ID required' }, { status: 400 });
     }
 
+    // Filter out undefined/null values and ensure no relation fields are passed
+    const cleanedData = Object.fromEntries(
+      Object.entries(updateData).filter(([key, value]) => {
+        // Skip undefined, null values, and any nested objects that might be relations
+        if (value === undefined || value === null) return false;
+        // Keep primitives and JSON-serializable values
+        return true;
+      })
+    );
+
     const session = await prisma.bookSession.update({
       where: { id: sessionId },
-      data: updateData,
+      data: cleanedData,
       include: { chapters: true },
     });
 
