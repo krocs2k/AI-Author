@@ -67,10 +67,11 @@ function validateWordCount(wordCount: number, target: number, minPercent: number
   };
 }
 
-// Constants for multi-stage generation
-const WORDS_PER_STAGE = 800; // Generate ~800 words per API call to stay under timeout
-const MAX_STAGES = 6; // Maximum 6 stages = ~4800 words max per chapter
+// Constants for multi-stage generation optimized for genre-based word targets
+const WORDS_PER_STAGE = 750; // Generate ~750 words per API call for reliability
+const MAX_STAGES = 8; // Maximum 8 stages = ~6000 words max per chapter (supports biography/fantasy)
 const STAGE_TIMEOUT_MS = 70000; // 70 seconds per stage to stay under Cloudflare limit
+const MIN_WORDS_FOR_STAGING = 1000; // Below this, use single-stage generation
 
 // Helper function to generate content with timeout
 async function generateStageContent(
@@ -118,7 +119,38 @@ async function generateChapterInStages(
   onStageComplete?: (stage: number, totalStages: number, partialContent: string) => void
 ): Promise<{ content: string; stages: number; totalWords: number; model: string }> {
   
-  // Calculate number of stages needed
+  // For shorter chapters (self-help, business), use single-stage generation
+  if (targetWords < MIN_WORDS_FOR_STAGING) {
+    console.log(`Short chapter: Using single-stage generation for ${targetWords} words`);
+    const systemPrompt = `You are a bestselling ${genre} author known for clear, engaging writing. Write compelling content that delivers value to readers.`;
+    const prompt = `Write Chapter ${chapterNumber} for a ${genre} book titled "${title}".
+
+STORY/BOOK SYNOPSIS: ${synopsis}
+
+WRITING REQUIREMENTS:
+- Write approximately ${targetWords} words
+- Start with an engaging opening hook
+- Develop the main content with clarity and purpose
+- Include relevant examples or narrative elements
+- End with a strong conclusion or transition
+
+Write the complete chapter now:`;
+    
+    const result = await generateStageContent(systemPrompt, prompt);
+    
+    if (result.timedOut) {
+      throw new Error('Content generation timed out');
+    }
+    
+    return {
+      content: result.content.trim(),
+      stages: 1,
+      totalWords: calculateWordCount(result.content),
+      model: result.model
+    };
+  }
+  
+  // Calculate number of stages needed for longer chapters
   const numStages = Math.min(Math.ceil(targetWords / WORDS_PER_STAGE), MAX_STAGES);
   const wordsPerStage = Math.ceil(targetWords / numStages);
   

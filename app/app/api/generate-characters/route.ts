@@ -175,6 +175,193 @@ const GENRE_CHARACTER_RECOMMENDATIONS: Record<string, CharacterRecommendations> 
       'Develop victims as full characters, not just plot devices'
     ]
   },
+  'contemporary-fiction': {
+    genre: 'Contemporary Fiction',
+    totalRecommended: 8,
+    breakdown: { protagonists: 1, antagonists: 1, supporting: 4, minor: 2 },
+    reasoning: 'Contemporary fiction focuses on character depth and realistic relationships. A moderate cast allows for nuanced exploration of modern life and social dynamics.',
+    topBooksReference: [
+      { title: 'Where the Crawdads Sing', characterCount: 10, mainCharacters: 2 },
+      { title: 'A Man Called Ove', characterCount: 8, mainCharacters: 1 },
+      { title: 'Eleanor Oliphant Is Completely Fine', characterCount: 7, mainCharacters: 1 },
+    ],
+    genreSpecificTips: [
+      'Create flawed, relatable protagonists',
+      'Develop supporting characters with their own stories',
+      'Use relationships to reveal character growth',
+      'Ground characters in authentic, contemporary settings'
+    ]
+  },
+  'adventure': {
+    genre: 'Adventure',
+    totalRecommended: 10,
+    breakdown: { protagonists: 1, antagonists: 2, supporting: 4, minor: 3 },
+    reasoning: 'Adventure stories need a hero, obstacles (human and environmental), allies, and local characters encountered along the journey.',
+    topBooksReference: [
+      { title: 'Treasure Island', characterCount: 12, mainCharacters: 3 },
+      { title: 'Life of Pi', characterCount: 5, mainCharacters: 1 },
+      { title: 'Ready Player One', characterCount: 10, mainCharacters: 4 },
+    ],
+    genreSpecificTips: [
+      'Give the protagonist skills that will be tested',
+      'Create antagonists who are formidable obstacles',
+      'Include a loyal companion or team',
+      'Add local guides or characters with crucial knowledge'
+    ]
+  },
+  'western': {
+    genre: 'Western',
+    totalRecommended: 9,
+    breakdown: { protagonists: 1, antagonists: 2, supporting: 4, minor: 2 },
+    reasoning: 'Westerns feature solitary heroes, outlaws, lawmen, and frontier settlers. The cast should reflect the isolation and harsh realities of frontier life.',
+    topBooksReference: [
+      { title: 'Lonesome Dove', characterCount: 15, mainCharacters: 4 },
+      { title: 'True Grit', characterCount: 8, mainCharacters: 3 },
+      { title: 'Blood Meridian', characterCount: 12, mainCharacters: 2 },
+    ],
+    genreSpecificTips: [
+      'Create a protagonist shaped by frontier hardship',
+      'Include morally ambiguous outlaws or lawmen',
+      'Add townspeople who represent civilization',
+      'Consider Indigenous characters with authentic depth'
+    ]
+  },
+  'paranormal': {
+    genre: 'Paranormal',
+    totalRecommended: 9,
+    breakdown: { protagonists: 1, antagonists: 2, supporting: 4, minor: 2 },
+    reasoning: 'Paranormal fiction balances supernatural beings with human characters. The mix creates tension between normal and otherworldly worlds.',
+    topBooksReference: [
+      { title: 'Interview with the Vampire', characterCount: 8, mainCharacters: 3 },
+      { title: 'A Discovery of Witches', characterCount: 12, mainCharacters: 2 },
+      { title: 'Practical Magic', characterCount: 8, mainCharacters: 4 },
+    ],
+    genreSpecificTips: [
+      'Define clear rules for supernatural characters',
+      'Include skeptics who ground the story',
+      'Create supernatural beings with human motivations',
+      'Add characters who bridge both worlds'
+    ]
+  },
+  'dystopian': {
+    genre: 'Dystopian',
+    totalRecommended: 10,
+    breakdown: { protagonists: 1, antagonists: 2, supporting: 5, minor: 2 },
+    reasoning: 'Dystopian fiction needs rebels, authority figures, and citizens at different levels of awareness. The cast should represent the system and those who challenge it.',
+    topBooksReference: [
+      { title: '1984', characterCount: 8, mainCharacters: 2 },
+      { title: 'The Hunger Games', characterCount: 12, mainCharacters: 3 },
+      { title: 'The Handmaid\'s Tale', characterCount: 10, mainCharacters: 1 },
+    ],
+    genreSpecificTips: [
+      'Create a protagonist who awakens to the truth',
+      'Include authority figures who embody the system',
+      'Add fellow rebels with different motivations',
+      'Develop characters who represent the compliant masses'
+    ]
+  },
+  'comedy': {
+    genre: 'Comedy',
+    totalRecommended: 10,
+    breakdown: { protagonists: 1, antagonists: 1, supporting: 5, minor: 3 },
+    reasoning: 'Comedy thrives on character dynamics and misunderstandings. An ensemble cast allows for multiple comedic relationships and running gags.',
+    topBooksReference: [
+      { title: 'Good Omens', characterCount: 15, mainCharacters: 2 },
+      { title: 'Bridget Jones\'s Diary', characterCount: 8, mainCharacters: 3 },
+      { title: 'The Hitchhiker\'s Guide to the Galaxy', characterCount: 8, mainCharacters: 4 },
+    ],
+    genreSpecificTips: [
+      'Give each character a distinct comedic trait',
+      'Create mismatched pairs for maximum humor',
+      'Include a straight man to react to absurdity',
+      'Develop characters whose flaws drive the comedy'
+    ]
+  },
+  'biography': {
+    genre: 'Biography',
+    totalRecommended: 12,
+    breakdown: { protagonists: 1, antagonists: 1, supporting: 7, minor: 3 },
+    reasoning: 'Biographies center on the subject but need family, colleagues, rivals, and historical figures to provide context and conflict.',
+    topBooksReference: [
+      { title: 'Steve Jobs', characterCount: 20, mainCharacters: 1 },
+      { title: 'Alexander Hamilton', characterCount: 25, mainCharacters: 5 },
+      { title: 'Becoming', characterCount: 15, mainCharacters: 3 },
+    ],
+    genreSpecificTips: [
+      'Present the subject with both strengths and flaws',
+      'Include key relationships that shaped the person',
+      'Add rivals or opponents who provide conflict',
+      'Develop mentors and influences on the subject'
+    ]
+  },
+  'self-help': {
+    genre: 'Self-Help',
+    totalRecommended: 6,
+    breakdown: { protagonists: 1, antagonists: 0, supporting: 3, minor: 2 },
+    reasoning: 'Self-help uses case studies and examples rather than traditional characters. Focus on relatable personas that readers can identify with.',
+    topBooksReference: [
+      { title: 'Atomic Habits', characterCount: 5, mainCharacters: 1 },
+      { title: 'The 7 Habits', characterCount: 4, mainCharacters: 1 },
+      { title: 'Can\'t Hurt Me', characterCount: 8, mainCharacters: 1 },
+    ],
+    genreSpecificTips: [
+      'Use the author as a guide character',
+      'Create composite case study personas',
+      'Include success story examples',
+      'Add relatable "before" characters for transformation arcs'
+    ]
+  },
+  'business': {
+    genre: 'Business',
+    totalRecommended: 8,
+    breakdown: { protagonists: 1, antagonists: 1, supporting: 4, minor: 2 },
+    reasoning: 'Business books feature entrepreneurs, executives, and industry examples. Characters serve to illustrate principles and strategies.',
+    topBooksReference: [
+      { title: 'Good to Great', characterCount: 10, mainCharacters: 5 },
+      { title: 'Shoe Dog', characterCount: 15, mainCharacters: 1 },
+      { title: 'The Lean Startup', characterCount: 6, mainCharacters: 1 },
+    ],
+    genreSpecificTips: [
+      'Use real business leaders as case studies',
+      'Create composite characters for sensitive examples',
+      'Include both successes and cautionary tales',
+      'Develop mentor figures who embody key principles'
+    ]
+  },
+  'health-fitness': {
+    genre: 'Health & Fitness',
+    totalRecommended: 6,
+    breakdown: { protagonists: 1, antagonists: 0, supporting: 3, minor: 2 },
+    reasoning: 'Health books use patient cases, research subjects, and the author as guide. Characters illustrate health journeys and transformations.',
+    topBooksReference: [
+      { title: 'Why We Sleep', characterCount: 4, mainCharacters: 1 },
+      { title: 'Can\'t Hurt Me', characterCount: 8, mainCharacters: 1 },
+      { title: 'The Body', characterCount: 6, mainCharacters: 1 },
+    ],
+    genreSpecificTips: [
+      'Use the author as authoritative guide',
+      'Include patient/client transformation stories',
+      'Add research subjects as examples',
+      'Create relatable personas at different health stages'
+    ]
+  },
+  'memoir': {
+    genre: 'Memoir',
+    totalRecommended: 10,
+    breakdown: { protagonists: 1, antagonists: 1, supporting: 5, minor: 3 },
+    reasoning: 'Memoirs center on the author but need family, friends, and significant others to provide context, conflict, and emotional depth.',
+    topBooksReference: [
+      { title: 'Educated', characterCount: 12, mainCharacters: 4 },
+      { title: 'The Glass Castle', characterCount: 10, mainCharacters: 5 },
+      { title: 'Born a Crime', characterCount: 8, mainCharacters: 2 },
+    ],
+    genreSpecificTips: [
+      'Present yourself honestly, including flaws',
+      'Develop family members as full characters',
+      'Include characters who challenged or shaped you',
+      'Add voices that represent different perspectives on events'
+    ]
+  },
 };
 
 // Default recommendations for genres not specifically defined
