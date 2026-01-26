@@ -292,6 +292,43 @@ Remember: Word count compliance is MANDATORY. Quality content within the specifi
   };
 }
 
+// Helper function to generate content with timeout fallback
+async function generateWithTimeout(
+  systemPrompt: string,
+  prompt: string,
+  wordTarget: number,
+  timeoutMs: number = 60000 // 60 second timeout
+): Promise<{ content: string; model: string; provider: string; timedOut: boolean }> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  
+  try {
+    const response = await routeLLMClient.generateWithSystem(
+      systemPrompt,
+      prompt,
+      'content-creation',
+      {
+        temperature: 0.7,
+        maxTokens: Math.max(4000, Math.ceil(wordTarget * 1.5))
+      }
+    );
+    
+    clearTimeout(timeoutId);
+    return {
+      content: response.content || '',
+      model: response.model,
+      provider: response.provider,
+      timedOut: false
+    };
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError' || error.message?.includes('timed out') || error.message?.includes('524')) {
+      return { content: '', model: 'timeout', provider: 'none', timedOut: true };
+    }
+    throw error;
+  }
+}
+
 export async function POST(request: NextRequest) {
   let type: string = 'unknown';
   let wordTarget: number = 0;
@@ -310,7 +347,9 @@ export async function POST(request: NextRequest) {
     console.log(`Starting content generation: ${type} for ${title} (${genre})`);
 
     let prompt = '';
-    wordTarget = type === 'forward' ? 800 : (wordsPerChapter || 3500);
+    // Cap word target to prevent Cloudflare timeouts (max ~1500 words to stay under 100s)
+    const requestedWords = type === 'forward' ? 800 : (wordsPerChapter || 3500);
+    wordTarget = Math.min(requestedWords, 1500); // Cap at 1500 to prevent timeout
 
     if (type === 'forward') {
       prompt = `Write a compelling forward/introduction for a ${genre} book titled "${title}".

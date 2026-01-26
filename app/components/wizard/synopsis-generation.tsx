@@ -90,7 +90,7 @@ export function SynopsisGeneration({
                 <h4 className="font-semibold text-gray-200 mb-2">Humanization Techniques</h4>
                 <div className="flex flex-wrap gap-1">
                   {authorAnalysis?.humanizationTechniques?.slice(0, 3).map((technique, index) => (
-                    <Badge key={index} variant="outline" className="text-xs">
+                    <Badge key={index} variant="outline" className="text-xs text-white border-purple-500/50 bg-purple-500/10">
                       {technique}
                     </Badge>
                   ))}
