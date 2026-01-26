@@ -472,14 +472,36 @@ export function CharacterGeneration({
       )}
 
       {/* Navigation */}
-      <div className="flex justify-end">
-        <Button
-          onClick={onNext}
-          disabled={!hasCharacters || isLoading?.characters}
-          className="px-8"
-        >
-          Continue to Content Creation
-        </Button>
+      <div className="flex flex-col items-end gap-3">
+        {!hasCharacters && !isLoading?.characters && (
+          <p className="text-sm text-gray-400">
+            Generate characters above or skip to continue
+          </p>
+        )}
+        {isLoading?.characters && (
+          <p className="text-sm text-amber-400">
+            Generating characters... This may take 2-3 minutes
+          </p>
+        )}
+        <div className="flex gap-3">
+          {!hasCharacters && (
+            <Button
+              variant="outline"
+              onClick={onNext}
+              disabled={isLoading?.characters}
+              className="px-6 border-gray-600 text-gray-400 hover:text-gray-200"
+            >
+              Skip Characters
+            </Button>
+          )}
+          <Button
+            onClick={onNext}
+            disabled={!hasCharacters || isLoading?.characters}
+            className="px-8"
+          >
+            Continue to Content Creation
+          </Button>
+        </div>
       </div>
     </div>
   );
