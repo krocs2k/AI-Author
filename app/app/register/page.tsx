@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { BookOpen, Mail, Lock, User, Chrome } from 'lucide-react';
+import { BookOpen, Mail, Lock, User, Chrome, CheckCircle, Clock } from 'lucide-react';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -18,6 +18,7 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleEnabled, setGoogleEnabled] = useState(false);
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
 
   useEffect(() => {
     // Check if Google provider is available
@@ -58,17 +59,9 @@ export default function RegisterPage() {
         return;
       }
 
-      // Sign in after successful registration
-      const result = await signIn('credentials', {
-        email,
-        password,
-        redirect: false
-      });
-
-      if (result?.error) {
-        setError('Account created but sign in failed. Please try logging in.');
-      } else {
-        router.replace('/dashboard');
+      // Account created but pending approval
+      if (data.pendingApproval) {
+        setRegistrationSuccess(true);
       }
     } catch (err) {
       setError('An error occurred. Please try again.');
@@ -94,6 +87,32 @@ export default function RegisterPage() {
           <CardDescription className="text-gray-400">Start your journey as an AI Author</CardDescription>
         </CardHeader>
         <CardContent>
+          {registrationSuccess ? (
+            <div className="text-center space-y-4">
+              <div className="flex justify-center">
+                <div className="p-4 bg-green-500/20 rounded-full">
+                  <CheckCircle className="h-12 w-12 text-green-400" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-semibold text-white">Account Created!</h3>
+                <div className="p-4 bg-amber-500/20 border border-amber-500/50 rounded-lg">
+                  <div className="flex items-center justify-center gap-2 text-amber-300 mb-2">
+                    <Clock className="h-5 w-5" />
+                    <span className="font-semibold">Pending Approval</span>
+                  </div>
+                  <p className="text-sm text-amber-200/80">
+                    Your account has been created but requires administrator approval before you can sign in.
+                  </p>
+                </div>
+              </div>
+              <Link href="/login">
+                <Button className="w-full bg-teal-500 hover:bg-teal-600 text-white mt-4">
+                  Return to Login
+                </Button>
+              </Link>
+            </div>
+          ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
@@ -163,8 +182,9 @@ export default function RegisterPage() {
               {loading ? 'Creating account...' : 'Create Account'}
             </Button>
           </form>
+          )}
 
-          {googleEnabled && (
+          {!registrationSuccess && googleEnabled && (
             <>
               <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center">
@@ -186,6 +206,7 @@ export default function RegisterPage() {
             </>
           )}
         </CardContent>
+        {!registrationSuccess && (
         <CardFooter className="flex justify-center">
           <p className="text-sm text-gray-400">
             Already have an account?{' '}
@@ -194,6 +215,7 @@ export default function RegisterPage() {
             </Link>
           </p>
         </CardFooter>
+        )}
       </Card>
     </div>
   );

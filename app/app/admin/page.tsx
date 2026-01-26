@@ -9,13 +9,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { BookOpen, Users, Settings, Trash2, Edit, Save, ArrowLeft, LogOut, Shield } from 'lucide-react';
+import { BookOpen, Users, Settings, Trash2, Edit, Save, ArrowLeft, LogOut, Shield, CheckCircle, XCircle } from 'lucide-react';
 
 interface User {
   id: string;
   name: string | null;
   email: string;
   role: string;
+  isApproved: boolean;
   createdAt: string;
 }
 
@@ -141,6 +142,22 @@ export default function AdminPage() {
     }
   };
 
+  const handleToggleApproval = async (userId: string, currentApproval: boolean) => {
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isApproved: !currentApproval })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUsers(users.map(u => u.id === userId ? { ...u, isApproved: data.user.isApproved } : u));
+      }
+    } catch (error) {
+      console.error('Error toggling approval:', error);
+    }
+  };
+
   if (status === 'loading' || loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
@@ -217,6 +234,7 @@ export default function AdminPage() {
                         <th className="text-left py-3 px-4 text-gray-400 font-medium">Name</th>
                         <th className="text-left py-3 px-4 text-gray-400 font-medium">Email</th>
                         <th className="text-left py-3 px-4 text-gray-400 font-medium">Role</th>
+                        <th className="text-center py-3 px-4 text-gray-400 font-medium">Status</th>
                         <th className="text-left py-3 px-4 text-gray-400 font-medium">Created</th>
                         <th className="text-right py-3 px-4 text-gray-400 font-medium">Actions</th>
                       </tr>
@@ -253,6 +271,29 @@ export default function AdminPage() {
                                 {user.role}
                               </span>
                             )}
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <button
+                              onClick={() => handleToggleApproval(user.id, user.isApproved)}
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                                user.isApproved 
+                                  ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' 
+                                  : 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
+                              }`}
+                              title={user.isApproved ? 'Click to disable account' : 'Click to approve account'}
+                            >
+                              {user.isApproved ? (
+                                <>
+                                  <CheckCircle className="h-3.5 w-3.5" />
+                                  Approved
+                                </>
+                              ) : (
+                                <>
+                                  <XCircle className="h-3.5 w-3.5" />
+                                  Pending
+                                </>
+                              )}
+                            </button>
                           </td>
                           <td className="py-3 px-4 text-gray-400">
                             {new Date(user.createdAt).toLocaleDateString()}

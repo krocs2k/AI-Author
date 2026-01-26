@@ -15,19 +15,22 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     const { id } = params;
     const body = await request.json();
-    const { name, role } = body;
+    const { name, role, isApproved } = body;
+
+    const updateData: any = {};
+    if (name !== undefined) updateData.name = name;
+    if (role !== undefined) updateData.role = role;
+    if (isApproved !== undefined) updateData.isApproved = isApproved;
 
     const user = await prisma.user.update({
       where: { id },
-      data: {
-        name: name || undefined,
-        role: role || undefined
-      },
+      data: updateData,
       select: {
         id: true,
         name: true,
         email: true,
         role: true,
+        isApproved: true,
         createdAt: true
       }
     });

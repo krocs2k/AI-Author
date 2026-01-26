@@ -29,18 +29,21 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Create user
+    // Create user with isApproved: false (disabled by default)
     const user = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
         name: name || email.split('@')[0],
-        role: 'USER'
+        role: 'USER',
+        isApproved: false
       }
     });
 
     return NextResponse.json({
       success: true,
+      pendingApproval: true,
+      message: 'Account created successfully. Your account is pending administrator approval.',
       user: {
         id: user.id,
         email: user.email,

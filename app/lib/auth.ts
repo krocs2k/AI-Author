@@ -44,6 +44,11 @@ const credentialsProvider = CredentialsProvider({
       throw new Error('Invalid credentials');
     }
 
+    // Check if user account is approved
+    if (!user.isApproved) {
+      throw new Error('ACCOUNT_PENDING_APPROVAL');
+    }
+
     return {
       id: user.id,
       email: user.email,
@@ -117,9 +122,24 @@ export async function createAuthOptions(): Promise<NextAuthOptions> {
         }
         return session;
       },
-      async signIn({ account, profile }) {
+      async signIn({ account, profile, user }) {
         if (account?.provider === 'google') {
-          return !!((profile as any)?.email_verified ?? true);
+          // Check email verification
+          if (!((profile as any)?.email_verified ?? true)) {
+            return false;
+          }
+          // Check if existing user is approved
+          if (user?.email) {
+            const dbUser = await prisma.user.findUnique({
+              where: { email: user.email }
+            });
+            // If user exists and is not approved, deny sign in
+            if (dbUser && !dbUser.isApproved) {
+              return '/login?error=ACCOUNT_PENDING_APPROVAL';
+            }
+            // New Google users will be created with isApproved: false by adapter
+            // We need to check after user creation
+          }
         }
         return true;
       }
@@ -163,9 +183,19 @@ export const authOptions: NextAuthOptions = {
       }
       return session;
     },
-    async signIn({ account, profile }) {
+    async signIn({ account, profile, user }) {
       if (account?.provider === 'google') {
-        return !!((profile as any)?.email_verified ?? true);
+        if (!((profile as any)?.email_verified ?? true)) {
+          return false;
+        }
+        if (user?.email) {
+          const dbUser = await prisma.user.findUnique({
+            where: { email: user.email }
+          });
+          if (dbUser && !dbUser.isApproved) {
+            return '/login?error=ACCOUNT_PENDING_APPROVAL';
+          }
+        }
       }
       return true;
     }

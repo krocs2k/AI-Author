@@ -1,19 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { signIn, getProviders } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { BookOpen, Mail, Lock, Chrome } from 'lucide-react';
+import { BookOpen, Mail, Lock, Chrome, Clock } from 'lucide-react';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [pendingApproval, setPendingApproval] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleEnabled, setGoogleEnabled] = useState(false);
 
@@ -24,11 +27,18 @@ export default function LoginPage() {
         setGoogleEnabled(true);
       }
     });
-  }, []);
+    
+    // Check for pending approval error from URL (Google SSO redirect)
+    const urlError = searchParams.get('error');
+    if (urlError === 'ACCOUNT_PENDING_APPROVAL') {
+      setPendingApproval(true);
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setPendingApproval(false);
     setLoading(true);
 
     try {
@@ -39,7 +49,11 @@ export default function LoginPage() {
       });
 
       if (result?.error) {
-        setError('Invalid email or password');
+        if (result.error === 'ACCOUNT_PENDING_APPROVAL') {
+          setPendingApproval(true);
+        } else {
+          setError('Invalid email or password');
+        }
       } else {
         router.replace('/dashboard');
       }
@@ -68,7 +82,18 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
+            {pendingApproval && (
+              <div className="p-4 bg-amber-500/20 border border-amber-500/50 rounded-lg text-amber-300">
+                <div className="flex items-center gap-2 mb-2">
+                  <Clock className="h-5 w-5" />
+                  <span className="font-semibold">Account Pending Approval</span>
+                </div>
+                <p className="text-sm text-amber-200/80">
+                  Your account is awaiting administrator approval. You will be able to sign in once an admin has approved your account.
+                </p>
+              </div>
+            )}
+            {error && !pendingApproval && (
               <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
                 {error}
               </div>
@@ -142,5 +167,17 @@ export default function LoginPage() {
         </CardFooter>
       </Card>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }
