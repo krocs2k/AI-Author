@@ -85,9 +85,9 @@ export class RouteLLMClient {
       requestBody.response_format = request.responseFormat;
     }
     
-    // Make the API call with timeout (5 minutes for long content generation)
+    // Make the API call with timeout (max 80 seconds to stay under Cloudflare's ~100s limit)
     const controller = new AbortController();
-    const timeoutMs = (request.maxTokens && request.maxTokens > 2000) ? 300000 : 120000; // 5 min for long content, 2 min otherwise
+    const timeoutMs = 80000; // 80 seconds max to avoid Cloudflare 524 errors
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     
     let response: Response;

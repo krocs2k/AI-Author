@@ -309,7 +309,7 @@ async function generateWithTimeout(
       'content-creation',
       {
         temperature: 0.7,
-        maxTokens: Math.max(4000, Math.ceil(wordTarget * 1.5))
+        maxTokens: Math.min(2000, Math.ceil(wordTarget * 1.5)) // Cap maxTokens to speed up generation
       }
     );
     
@@ -347,9 +347,9 @@ export async function POST(request: NextRequest) {
     console.log(`Starting content generation: ${type} for ${title} (${genre})`);
 
     let prompt = '';
-    // Cap word target to prevent Cloudflare timeouts (max ~1500 words to stay under 100s)
-    const requestedWords = type === 'forward' ? 800 : (wordsPerChapter || 3500);
-    wordTarget = Math.min(requestedWords, 1500); // Cap at 1500 to prevent timeout
+    // Cap word target to prevent Cloudflare timeouts (max ~1000 words to stay well under 100s)
+    const requestedWords = type === 'forward' ? 500 : (wordsPerChapter || 3500);
+    wordTarget = Math.min(requestedWords, 1000); // Cap at 1000 to prevent timeout
 
     if (type === 'forward') {
       prompt = `Write a compelling forward/introduction for a ${genre} book titled "${title}".
@@ -393,26 +393,27 @@ STORY CONTEXT: ${synopsis}
 Remember: You must write close to ${wordTarget} words while maintaining quality and engagement. Plan your content to naturally reach this length through rich storytelling.`;
     }
 
-    console.log(`Calling RouteLLM for content generation...`);
+    console.log(`Calling RouteLLM for content generation with 60s timeout...`);
 
-    // Simplified content generation with RouteLLM
-    const response = await routeLLMClient.generateWithSystem(
-      `You are a bestselling author in the ${genre} genre. Write engaging, human-like content that feels authentic and compelling.`,
-      prompt,
-      'content-creation',
-      {
-        temperature: 0.7,
-        maxTokens: Math.max(4000, Math.ceil(wordTarget * 1.5))
-      }
-    );
+    // Use timeout wrapper to prevent Cloudflare 524 errors
+    const systemPrompt = `You are a bestselling author in the ${genre} genre. Write engaging, human-like content that feels authentic and compelling.`;
+    const timeoutResult = await generateWithTimeout(systemPrompt, prompt, wordTarget, 60000);
+    
+    if (timeoutResult.timedOut) {
+      console.log('Content generation timed out, returning partial/fallback response');
+      return NextResponse.json({ 
+        error: 'Content generation timed out. Please try again with fewer words or try later.',
+        timeout: true 
+      }, { status: 408 });
+    }
 
-    const content = response.content || '';
+    const content = timeoutResult.content;
     
     if (!content.trim()) {
       throw new Error('No content generated');
     }
 
-    console.log(`Content generated successfully using ${response.model}`);
+    console.log(`Content generated successfully using ${timeoutResult.model}`);
 
     // Calculate word count
     const wordCount = calculateWordCount(content);
@@ -475,9 +476,9 @@ Remember: You must write close to ${wordTarget} words while maintaining quality 
       wordCountStatus: validation.status,
       wordCountMessage: validation.message,
       routingInfo: {
-        modelUsed: response.model,
-        provider: response.provider,
-        fallbackUsed: response.metadata?.fallbackUsed || false
+        modelUsed: timeoutResult.model,
+        provider: timeoutResult.provider,
+        fallbackUsed: false
       }
     };
 
