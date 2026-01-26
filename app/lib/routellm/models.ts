@@ -40,25 +40,7 @@ export const AVAILABLE_MODELS: LLMModel[] = [
     maxTokens: 16384,
     contextWindow: 128000
   },
-  // Claude 4 Sonnet (Fallback for creative tasks)
-  {
-    id: 'claude-sonnet-4',
-    name: 'Claude 4 Sonnet',
-    provider: 'abacusai',
-    capabilities: {
-      creative: 95,
-      analytical: 92,
-      technical: 90,
-      conversational: 95,
-      longForm: 95,
-      structured: 90
-    },
-    costTier: 'high',
-    qualityScore: 95,
-    maxTokens: 8192,
-    contextWindow: 200000
-  },
-  // GPT-5.1 (High-end analytical model)
+  // GPT-5.1 (Fallback model)
   {
     id: 'gpt-5.1',
     name: 'GPT-5.1',
@@ -75,43 +57,62 @@ export const AVAILABLE_MODELS: LLMModel[] = [
     qualityScore: 96,
     maxTokens: 8192,
     contextWindow: 128000
+  },
+  // Gemini 3 Pro (Fallback model)
+  {
+    id: 'gemini-3-pro',
+    name: 'Gemini 3 Pro',
+    provider: 'abacusai',
+    capabilities: {
+      creative: 92,
+      analytical: 94,
+      technical: 92,
+      conversational: 90,
+      longForm: 90,
+      structured: 94
+    },
+    costTier: 'medium',
+    qualityScore: 93,
+    maxTokens: 8192,
+    contextWindow: 1000000
   }
 ];
 
 // Task-specific model preferences
 // GPT-5 Mini for analysis tasks, Llama4 for creative content
+// Fallbacks: gpt-5.1 and gemini-3-pro
 export const TASK_MODEL_PREFERENCES: Record<string, {
   primary: readonly string[];
   capabilities: readonly string[];
   reasoning: string;
 }> = {
   'genre-analysis': {
-    primary: ['gpt-5-mini', 'gpt-5.1', 'claude-sonnet-4'],
+    primary: ['gpt-5-mini', 'gpt-5.1', 'gemini-3-pro'],
     capabilities: ['analytical', 'structured'],
     reasoning: 'Analysis tasks use GPT-5 Mini for structured reasoning'
   },
   'synopsis-generation': {
-    primary: ['llama4', 'claude-sonnet-4', 'gpt-5.1'],
+    primary: ['llama4', 'gpt-5.1', 'gemini-3-pro'],
     capabilities: ['creative', 'longForm'],
     reasoning: 'Creative writing tasks use Llama 4 for superior creative output'
   },
   'title-generation': {
-    primary: ['llama4', 'claude-sonnet-4', 'gpt-5-mini'],
+    primary: ['llama4', 'gpt-5.1', 'gemini-3-pro'],
     capabilities: ['creative', 'conversational'],
     reasoning: 'Title generation uses Llama 4 for creative quality'
   },
   'content-creation': {
-    primary: ['llama4', 'claude-sonnet-4', 'gpt-5.1'],
+    primary: ['llama4', 'gpt-5.1', 'gemini-3-pro'],
     capabilities: ['creative', 'longForm', 'conversational'],
     reasoning: 'Long-form creative content uses Llama 4 as primary'
   },
   'marketing-copy': {
-    primary: ['llama4', 'claude-sonnet-4', 'gpt-5.1'],
+    primary: ['llama4', 'gpt-5.1', 'gemini-3-pro'],
     capabilities: ['creative', 'conversational', 'structured'],
     reasoning: 'Marketing copy uses Llama 4 for creative persuasive writing'
   },
   'general': {
-    primary: ['gpt-5-mini', 'llama4', 'claude-sonnet-4'],
+    primary: ['gpt-5-mini', 'gpt-5.1', 'gemini-3-pro'],
     capabilities: ['conversational', 'analytical'],
     reasoning: 'General tasks default to GPT-5 Mini for balanced performance'
   }
