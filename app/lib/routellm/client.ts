@@ -85,9 +85,10 @@ export class RouteLLMClient {
       requestBody.response_format = request.responseFormat;
     }
     
-    // Make the API call with timeout
+    // Make the API call with timeout (5 minutes for long content generation)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+    const timeoutMs = (request.maxTokens && request.maxTokens > 2000) ? 300000 : 120000; // 5 min for long content, 2 min otherwise
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     
     let response: Response;
     try {
@@ -103,7 +104,7 @@ export class RouteLLMClient {
     } catch (fetchError: any) {
       clearTimeout(timeoutId);
       if (fetchError.name === 'AbortError') {
-        throw new Error('Request timed out after 2 minutes');
+        throw new Error(`Request timed out after ${timeoutMs / 60000} minutes`);
       }
       throw fetchError;
     }

@@ -47,17 +47,22 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const { sessionId, chapters, ...updateData } = await request.json();
+    const { sessionId, chapters, selectedSynopsisId, selectedTitleId, ...updateData } = await request.json();
 
     if (!sessionId) {
       return NextResponse.json({ error: 'Session ID required' }, { status: 400 });
     }
 
-    // Filter out undefined/null values and ensure no relation fields are passed
+    // Fields that exist in client types but not in database schema
+    const clientOnlyFields = ['selectedSynopsisId', 'selectedTitleId', 'chapters'];
+    
+    // Filter out undefined/null values and client-only fields
     const cleanedData = Object.fromEntries(
       Object.entries(updateData).filter(([key, value]) => {
-        // Skip undefined, null values, and any nested objects that might be relations
+        // Skip undefined, null values
         if (value === undefined || value === null) return false;
+        // Skip client-only fields
+        if (clientOnlyFields.includes(key)) return false;
         // Keep primitives and JSON-serializable values
         return true;
       })
