@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -12,6 +12,7 @@ import { SynopsisGeneration } from './wizard/synopsis-generation';
 import { TitlePlanning } from './wizard/title-planning';
 import { ContentCreation } from './wizard/content-creation';
 import { MarketingFinalization } from './wizard/marketing-finalization';
+import { AnimatedProgress, PROGRESS_CONFIGS, ProgressStep } from './ui/animated-progress';
 import { calculateReadTime, generateHumanizationScore, generateSuccessProbability, simulateAnalysisDelay, downloadAsFile, downloadBookAsPDF, downloadBookAsDocx, downloadBookAsText } from '@/lib/utils';
 import { BOOK_GENRES } from '@/lib/genres';
 import { Button } from './ui/button';
@@ -34,6 +35,68 @@ export default function AIAuthorWizard() {
   const [currentStep, setCurrentStep] = useState(1);
   const [session, setSession] = useState<Partial<BookSession>>({});
   const [isLoading, setIsLoading] = useState<{ [key: string]: boolean }>({});
+  
+  // Animated progress state
+  const [progressConfig, setProgressConfig] = useState<{
+    isVisible: boolean;
+    title: string;
+    icon: 'analyze' | 'synopsis' | 'title' | 'content' | 'marketing' | 'general';
+    steps: ProgressStep[];
+    currentStepIndex: number;
+  }>({
+    isVisible: false,
+    title: '',
+    icon: 'general',
+    steps: [],
+    currentStepIndex: 0,
+  });
+
+  const startProgress = useCallback((configKey: keyof typeof PROGRESS_CONFIGS) => {
+    const config = PROGRESS_CONFIGS[configKey];
+    setProgressConfig({
+      isVisible: true,
+      title: config.title,
+      icon: config.icon,
+      steps: config.steps.map((s, i) => ({ ...s, status: i === 0 ? 'active' : 'pending' })),
+      currentStepIndex: 0,
+    });
+  }, []);
+
+  const advanceProgress = useCallback((detail?: string) => {
+    setProgressConfig(prev => {
+      const newSteps = [...prev.steps];
+      const nextIndex = prev.currentStepIndex + 1;
+      
+      // Complete current step
+      if (prev.currentStepIndex < newSteps.length) {
+        newSteps[prev.currentStepIndex] = { ...newSteps[prev.currentStepIndex], status: 'completed' };
+      }
+      // Set next step as active
+      if (nextIndex < newSteps.length) {
+        newSteps[nextIndex] = { ...newSteps[nextIndex], status: 'active', detail };
+      }
+      
+      return {
+        ...prev,
+        steps: newSteps,
+        currentStepIndex: Math.min(nextIndex, newSteps.length - 1),
+      };
+    });
+  }, []);
+
+  const completeProgress = useCallback(() => {
+    setProgressConfig(prev => ({
+      ...prev,
+      steps: prev.steps.map(s => ({ ...s, status: 'completed' })),
+    }));
+    setTimeout(() => {
+      setProgressConfig(prev => ({ ...prev, isVisible: false }));
+    }, 600);
+  }, []);
+
+  const hideProgress = useCallback(() => {
+    setProgressConfig(prev => ({ ...prev, isVisible: false }));
+  }, []);
 
   // Initialize session
   useEffect(() => {
@@ -105,17 +168,28 @@ export default function AIAuthorWizard() {
     if (!session.selectedGenre) return;
     
     setIsLoading({ genre: true });
+    startProgress('genreAnalysis');
     
     try {
-      await simulateAnalysisDelay();
+      // Step 1: Initialize
+      await new Promise(r => setTimeout(r, 800));
+      advanceProgress('Fetching bestseller data');
       
+      // Step 2: MojoSauce analysis
       const response = await fetch('/api/analyze-genre', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ genre: session.selectedGenre }),
       });
       
+      advanceProgress('Analyzing author techniques');
+      await new Promise(r => setTimeout(r, 600));
+      
       const analysis = await response.json();
+      
+      // Step 3: SecretSauce
+      advanceProgress('Compiling insights');
+      await new Promise(r => setTimeout(r, 400));
       
       await updateSession({
         genreAnalysis: analysis.mojoSauce,
@@ -123,9 +197,11 @@ export default function AIAuthorWizard() {
         currentStep: 2,
       });
       
+      completeProgress();
       setCurrentStep(2);
     } catch (error) {
       console.error('Genre analysis failed:', error);
+      hideProgress();
     } finally {
       setIsLoading({});
     }
@@ -146,8 +222,13 @@ export default function AIAuthorWizard() {
 
   const handleGenerateSynopses = async () => {
     setIsLoading({ synopses: true });
+    startProgress('synopsisGeneration');
     
     try {
+      // Step 1: Preparing
+      await new Promise(r => setTimeout(r, 600));
+      advanceProgress('Creating unique concepts');
+      
       const response = await fetch('/api/generate-synopses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -158,18 +239,27 @@ export default function AIAuthorWizard() {
         }),
       });
       
+      advanceProgress('Optimizing for market');
+      await new Promise(r => setTimeout(r, 500));
+      
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
       const synopses = await response.json();
       
+      // Step 4: Scoring
+      advanceProgress('Calculating probabilities');
+      await new Promise(r => setTimeout(r, 400));
+      
       // Ensure we always have an array
       const validSynopses = Array.isArray(synopses) ? synopses : [];
       
       await updateSession({ synopses: validSynopses });
+      completeProgress();
     } catch (error) {
       console.error('Synopsis generation failed:', error);
+      hideProgress();
       // Set empty array as fallback to prevent runtime errors
       await updateSession({ synopses: [] });
     } finally {
@@ -181,8 +271,13 @@ export default function AIAuthorWizard() {
     if (!session.selectedSynopsis) return;
     
     setIsLoading({ titles: true });
+    startProgress('titleGeneration');
     
     try {
+      // Step 1: Analyzing synopsis
+      await new Promise(r => setTimeout(r, 600));
+      advanceProgress('Creating title options');
+      
       const response = await fetch('/api/generate-titles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -191,6 +286,9 @@ export default function AIAuthorWizard() {
           genre: session.selectedGenre,
         }),
       });
+      
+      advanceProgress('Evaluating market appeal');
+      await new Promise(r => setTimeout(r, 400));
       
       const titles = await response.json();
       
@@ -201,9 +299,11 @@ export default function AIAuthorWizard() {
         currentStep: 3,
       });
       
+      completeProgress();
       setCurrentStep(3);
     } catch (error) {
       console.error('Title generation failed:', error);
+      hideProgress();
     } finally {
       setIsLoading({});
     }
@@ -248,8 +348,13 @@ export default function AIAuthorWizard() {
   // Step 4: Content Creation
   const handleGenerateForward = async () => {
     setIsLoading({ forward: true });
+    startProgress('contentGeneration');
     
     try {
+      // Step 1: Drafting
+      await new Promise(r => setTimeout(r, 500));
+      advanceProgress('Writing forward section');
+      
       const response = await fetch('/api/generate-content', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -262,13 +367,23 @@ export default function AIAuthorWizard() {
         }),
       });
       
+      advanceProgress('Applying voice style');
+      await new Promise(r => setTimeout(r, 400));
+      
       const content = await response.json();
+      
+      advanceProgress('Validating content');
+      await new Promise(r => setTimeout(r, 300));
+      
       await updateSession({
         forward: content.content,
         forwardWordCount: content.wordCount,
       });
+      
+      completeProgress();
     } catch (error) {
       console.error('Forward generation failed:', error);
+      hideProgress();
     } finally {
       setIsLoading({});
     }
@@ -276,8 +391,12 @@ export default function AIAuthorWizard() {
 
   const handleGenerateChapter = async (chapterNumber: number) => {
     setIsLoading({ [`chapter-${chapterNumber}`]: true });
+    startProgress('contentGeneration');
     
     try {
+      // Step 1: Drafting
+      advanceProgress(`Writing chapter ${chapterNumber}`);
+      
       const response = await fetch('/api/generate-content', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -293,7 +412,13 @@ export default function AIAuthorWizard() {
         }),
       });
       
+      advanceProgress('Humanizing content');
+      await new Promise(r => setTimeout(r, 300));
+      
       const content = await response.json();
+      
+      advanceProgress('Checking word count');
+      await new Promise(r => setTimeout(r, 200));
       
       if (content.error) {
         throw new Error(content.error);
@@ -319,6 +444,8 @@ export default function AIAuthorWizard() {
         warning: content.warning,
       };
       
+      completeProgress();
+      
       const updatedChapters = [...(session.chapters || [])];
       const existingIndex = updatedChapters.findIndex(c => c.chapterNumber === chapterNumber);
       
@@ -333,6 +460,7 @@ export default function AIAuthorWizard() {
       await updateSession({ chapters: updatedChapters });
     } catch (error) {
       console.error('Chapter generation failed:', error);
+      hideProgress();
     } finally {
       setIsLoading({ ...isLoading, [`chapter-${chapterNumber}`]: false });
     }
@@ -378,8 +506,11 @@ export default function AIAuthorWizard() {
   // Step 5: Marketing
   const handleGenerateCoverPrompts = async () => {
     setIsLoading({ covers: true });
+    startProgress('marketingGeneration');
     
     try {
+      advanceProgress('Analyzing visual themes');
+      
       const response = await fetch('/api/generate-marketing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -391,10 +522,16 @@ export default function AIAuthorWizard() {
         }),
       });
       
+      advanceProgress('Generating cover concepts');
+      await new Promise(r => setTimeout(r, 400));
+      
       const prompts = await response.json();
       await updateSession({ coverPrompts: prompts });
+      
+      completeProgress();
     } catch (error) {
       console.error('Cover prompt generation failed:', error);
+      hideProgress();
     } finally {
       setIsLoading({});
     }
@@ -402,8 +539,11 @@ export default function AIAuthorWizard() {
 
   const handleGenerateSalesCopy = async () => {
     setIsLoading({ sales: true });
+    startProgress('marketingGeneration');
     
     try {
+      advanceProgress('Analyzing market appeal');
+      
       const response = await fetch('/api/generate-marketing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -415,10 +555,16 @@ export default function AIAuthorWizard() {
         }),
       });
       
+      advanceProgress('Crafting persuasive copy');
+      await new Promise(r => setTimeout(r, 400));
+      
       const result = await response.json();
       await updateSession({ salesCopy: result.content });
+      
+      completeProgress();
     } catch (error) {
       console.error('Sales copy generation failed:', error);
+      hideProgress();
     } finally {
       setIsLoading({});
     }
@@ -426,8 +572,11 @@ export default function AIAuthorWizard() {
 
   const handleGenerateBackCover = async () => {
     setIsLoading({ backCover: true });
+    startProgress('marketingGeneration');
     
     try {
+      advanceProgress('Extracting key hooks');
+      
       const response = await fetch('/api/generate-marketing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -439,10 +588,16 @@ export default function AIAuthorWizard() {
         }),
       });
       
+      advanceProgress('Writing back cover blurb');
+      await new Promise(r => setTimeout(r, 400));
+      
       const result = await response.json();
       await updateSession({ backCoverCopy: result.copy });
+      
+      completeProgress();
     } catch (error) {
       console.error('Back cover generation failed:', error);
+      hideProgress();
     } finally {
       setIsLoading({});
     }
@@ -474,6 +629,15 @@ export default function AIAuthorWizard() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100">
+      {/* Animated Progress Overlay */}
+      <AnimatedProgress
+        isVisible={progressConfig.isVisible}
+        title={progressConfig.title}
+        icon={progressConfig.icon}
+        steps={progressConfig.steps}
+        currentStepIndex={progressConfig.currentStepIndex}
+      />
+      
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b border-gray-800 bg-gray-900/95 backdrop-blur supports-[backdrop-filter]:bg-gray-900/75">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
