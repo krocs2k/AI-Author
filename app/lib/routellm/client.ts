@@ -85,15 +85,30 @@ export class RouteLLMClient {
       requestBody.response_format = request.responseFormat;
     }
     
-    // Make the API call
-    const response = await fetch(selectedProvider.baseURL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${selectedProvider.apiKey}`,
-      },
-      body: JSON.stringify(requestBody),
-    });
+    // Make the API call with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+    
+    let response: Response;
+    try {
+      response = await fetch(selectedProvider.baseURL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${selectedProvider.apiKey}`,
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal,
+      });
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === 'AbortError') {
+        throw new Error('Request timed out after 2 minutes');
+      }
+      throw fetchError;
+    }
+    
+    clearTimeout(timeoutId);
     
     if (!response.ok) {
       const errorText = await response.text();

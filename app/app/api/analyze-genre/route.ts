@@ -15,64 +15,67 @@ export async function POST(request: NextRequest) {
 
     console.log(`Starting genre analysis for: ${genre}`);
 
-    // Use RouteLLM for intelligent model selection based on analytical task requirements
-    const response = await routeLLMClient.generateWithSystem(
-      `You are an expert literary analyst specializing in bestselling books. Analyze the ${genre} genre and provide detailed insights for authors.`,
-      `Analyze the ${genre} genre and provide:
-
-1. MojoSauce Analysis (Top 10 bestselling books in ${genre} from last 5 years):
-- Key successful books with their success elements
-- Common story structures and themes
-- Average chapter count and words per chapter
-- Success factors that make books bestsellers
-
-2. SecretSauce Analysis (Top authors in ${genre}):
-- Writing styles and techniques of successful authors
-- Dialogue composition methods
-- Narrative techniques
-- Voice characteristics that create 90%+ humanized content
-
-Format as JSON with "mojoSauce" and "secretSauce" keys. Respond with raw JSON only.`,
-      'genre-analysis',
-      {
-        taskRequirements: {
-          priority: 'quality',
-          creativityLevel: 'low',
-          structuredOutput: true
-        }
-      }
-    );
-
+    // Try LLM call with a race against timeout for faster fallback
     let analysisResult;
-    
-    try {
-      // Clean and parse JSON response
-      const cleanContent = response.content.replace(/```json\n?|\n?```/g, '').trim();
-      analysisResult = JSON.parse(cleanContent);
-    } catch (parseError) {
-      console.error('JSON parsing error:', parseError);
-      // Fallback with simulated data
-      analysisResult = generateFallbackAnalysis(genre);
-    }
-
-    // Ensure mojoSauce and secretSauce exist
-    if (!analysisResult.mojoSauce || !analysisResult.secretSauce) {
-      analysisResult = generateFallbackAnalysis(genre);
-    }
-
-    // Add routing metadata to response for debugging
-    const routingInfo = {
-      modelUsed: response.model,
-      provider: response.provider,
-      fallbackUsed: response.metadata?.fallbackUsed || false
+    let routingInfo = {
+      modelUsed: 'fallback',
+      provider: 'system',
+      fallbackUsed: true
     };
 
-    console.log(`Genre analysis completed using RouteLLM:`, routingInfo);
+    try {
+      // Create a timeout promise for faster fallback (30 seconds)
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Quick timeout for better UX')), 30000);
+      });
+
+      // Race the API call against the timeout
+      const response = await Promise.race([
+        routeLLMClient.generateWithSystem(
+          `You are a literary analyst. Analyze the ${genre} genre briefly.`,
+          `For ${genre} books, provide JSON with "mojoSauce" (topBooks array with 3 items, commonPatterns array, avgChapters number, avgWordsPerChapter number, successFactors array) and "secretSauce" (topAuthors array with 2 items, humanizationTechniques array, commonVoiceElements array). Respond with only valid JSON.`,
+          'genre-analysis',
+          {
+            temperature: 0.3,
+            maxTokens: 2000
+          }
+        ),
+        timeoutPromise
+      ]) as any;
+
+      // Parse response
+      const cleanContent = response.content.replace(/```json\n?|\n?```/g, '').trim();
+      analysisResult = JSON.parse(cleanContent);
+      
+      routingInfo = {
+        modelUsed: response.model || 'route-llm',
+        provider: response.provider || 'AbacusAI',
+        fallbackUsed: false
+      };
+      
+      console.log(`Genre analysis completed using LLM:`, routingInfo);
+      
+    } catch (llmError) {
+      console.log('LLM call failed or timed out, using fallback data:', (llmError as Error).message);
+      analysisResult = null;
+    }
+
+    // Use fallback if LLM failed or returned invalid data
+    if (!analysisResult?.mojoSauce || !analysisResult?.secretSauce) {
+      console.log('Using fallback analysis data for:', genre);
+      analysisResult = generateFallbackAnalysis(genre);
+      routingInfo = {
+        modelUsed: 'fallback',
+        provider: 'system',
+        fallbackUsed: true
+      };
+    }
 
     return NextResponse.json({
       ...analysisResult,
       _routeLLM: routingInfo
     });
+    
   } catch (error) {
     console.error('Error analyzing genre:', error);
     

@@ -6,7 +6,7 @@ import { AVAILABLE_MODELS } from './models';
 export const PROVIDERS: LLMProvider[] = [
   {
     name: 'AbacusAI',
-    baseURL: 'https://apps.abacus.ai/v1/chat/completions',
+    baseURL: 'https://routellm.abacus.ai/v1/chat/completions',
     apiKey: process.env.ABACUSAI_API_KEY || '',
     models: AVAILABLE_MODELS.filter(m => m.provider === 'abacusai'),
     priority: 1,
