@@ -381,30 +381,23 @@ const DEFAULT_RECOMMENDATIONS: CharacterRecommendations = {
   ]
 };
 
-const STAGE_TIMEOUT_MS = 70000; // 70 seconds per stage
-
-// Helper function to generate content with timeout
+// Helper function to generate content - relies on routeLLMClient's internal timeout
 async function generateWithTimeout(
   systemPrompt: string,
-  prompt: string,
-  timeoutMs: number = STAGE_TIMEOUT_MS
+  prompt: string
 ): Promise<{ content: string; model: string; timedOut: boolean }> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  
   try {
     const response = await routeLLMClient.generateWithSystem(
       systemPrompt,
       prompt,
       'content-creation',
-      { temperature: 0.7, maxTokens: 2000 }
+      { temperature: 0.7, maxTokens: 1500 } // Reduced tokens for faster response
     );
     
-    clearTimeout(timeoutId);
     return { content: response.content || '', model: response.model, timedOut: false };
   } catch (error: any) {
-    clearTimeout(timeoutId);
-    if (error.name === 'AbortError' || error.message?.includes('timeout')) {
+    if (error.message?.includes('timeout') || error.message?.includes('All routing attempts failed')) {
+      console.warn('Character generation timed out, returning null');
       return { content: '', model: 'timeout', timedOut: true };
     }
     throw error;

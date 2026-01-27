@@ -70,18 +70,13 @@ function validateWordCount(wordCount: number, target: number, minPercent: number
 // Constants for multi-stage generation optimized for genre-based word targets
 const WORDS_PER_STAGE = 750; // Generate ~750 words per API call for reliability
 const MAX_STAGES = 8; // Maximum 8 stages = ~6000 words max per chapter (supports biography/fantasy)
-const STAGE_TIMEOUT_MS = 70000; // 70 seconds per stage to stay under Cloudflare limit
 const MIN_WORDS_FOR_STAGING = 1000; // Below this, use single-stage generation
 
-// Helper function to generate content with timeout
+// Helper function to generate content - relies on routeLLMClient's internal timeout (45s per attempt, 2 attempts max)
 async function generateStageContent(
   systemPrompt: string,
-  prompt: string,
-  timeoutMs: number = STAGE_TIMEOUT_MS
+  prompt: string
 ): Promise<{ content: string; model: string; provider: string; timedOut: boolean }> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  
   try {
     const response = await routeLLMClient.generateWithSystem(
       systemPrompt,
@@ -89,11 +84,10 @@ async function generateStageContent(
       'content-creation',
       {
         temperature: 0.7,
-        maxTokens: 1500 // Enough for ~800-1000 words
+        maxTokens: 1200 // Reduced tokens for faster response within timeout
       }
     );
     
-    clearTimeout(timeoutId);
     return {
       content: response.content || '',
       model: response.model,
@@ -101,8 +95,8 @@ async function generateStageContent(
       timedOut: false
     };
   } catch (error: any) {
-    clearTimeout(timeoutId);
-    if (error.name === 'AbortError' || error.message?.includes('timed out') || error.message?.includes('524')) {
+    if (error.message?.includes('timeout') || error.message?.includes('524') || error.message?.includes('All routing attempts failed')) {
+      console.warn('Stage content generation timed out');
       return { content: '', model: 'timeout', provider: 'none', timedOut: true };
     }
     throw error;

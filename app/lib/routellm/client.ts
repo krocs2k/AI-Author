@@ -17,8 +17,8 @@ export interface ChatCompletionRequest {
 }
 
 export class RouteLLMClient {
-  private maxRetries: number = 3;
-  private retryDelay: number = 1000;
+  private maxRetries: number = 2; // Reduced to 2 to stay under Cloudflare's ~100s limit
+  private retryDelay: number = 500; // Reduced delay
 
   /**
    * Main method for chat completions with intelligent routing
@@ -85,9 +85,10 @@ export class RouteLLMClient {
       requestBody.response_format = request.responseFormat;
     }
     
-    // Make the API call with timeout (max 80 seconds to stay under Cloudflare's ~100s limit)
+    // Make the API call with timeout (max 55 seconds per attempt)
+    // With 2 attempts max, this gives 55+55=110s total, but most succeed on first try
     const controller = new AbortController();
-    const timeoutMs = 80000; // 80 seconds max to avoid Cloudflare 524 errors
+    const timeoutMs = 55000; // 55 seconds per attempt
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     
     let response: Response;
