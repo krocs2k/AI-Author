@@ -7,6 +7,7 @@ export async function POST(request: NextRequest) {
     const { synopsis, genre } = await request.json();
 
     // Use RouteLLM for intelligent model selection optimized for creative title generation
+    // Reduced from 3000 to 2000 tokens for faster response times
     const response = await routeLLMClient.chatCompletion({
       messages: [
         {
@@ -35,8 +36,10 @@ Format as JSON array with objects containing "id", "title", and "reasoning".`
         priority: 'speed',
         creativityLevel: 'high',
         structuredOutput: true,
-        maxTokensNeeded: 3000
-      }
+        maxTokensNeeded: 2000
+      },
+      maxTokens: 2000,
+      temperature: 0.7
     });
 
     let titles;
@@ -76,6 +79,30 @@ Format as JSON array with objects containing "id", "title", and "reasoning".`
     return NextResponse.json(finalTitles.map(t => ({ ...t, _routeLLM: routingInfo })));
   } catch (error) {
     console.error('Error generating titles:', error);
+    
+    // Check if it's a timeout error
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const isTimeout = errorMessage.includes('timeout') || 
+                     errorMessage.includes('524') || 
+                     errorMessage.includes('All routing attempts failed');
+    
+    if (isTimeout) {
+      console.log('Title generation timed out, returning fallback titles');
+      // Return fallback titles on timeout
+      const fallbackTitles = [
+        { id: 'title-1', title: 'The Last Chapter', reasoning: 'Evokes mystery and finality', _routeLLM: { fallbackUsed: true } },
+        { id: 'title-2', title: 'Shadows of Tomorrow', reasoning: 'Creates intrigue about the future', _routeLLM: { fallbackUsed: true } },
+        { id: 'title-3', title: 'The Hidden Truth', reasoning: 'Suggests secrets to be revealed', _routeLLM: { fallbackUsed: true } },
+        { id: 'title-4', title: 'Beyond the Horizon', reasoning: 'Implies adventure and discovery', _routeLLM: { fallbackUsed: true } },
+        { id: 'title-5', title: 'The Silent Promise', reasoning: 'Creates emotional connection', _routeLLM: { fallbackUsed: true } },
+        { id: 'title-6', title: 'Echoes of the Heart', reasoning: 'Appeals to emotional depth', _routeLLM: { fallbackUsed: true } },
+        { id: 'title-7', title: 'The Turning Point', reasoning: 'Suggests crucial moments', _routeLLM: { fallbackUsed: true } },
+        { id: 'title-8', title: 'Whispers in the Dark', reasoning: 'Creates atmosphere and mystery', _routeLLM: { fallbackUsed: true } }
+      ];
+      
+      return NextResponse.json(fallbackTitles);
+    }
+    
     return NextResponse.json({ error: 'Failed to generate titles' }, { status: 500 });
   }
 }

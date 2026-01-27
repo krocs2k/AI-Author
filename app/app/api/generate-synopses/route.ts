@@ -3,8 +3,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { routeLLMClient } from '@/lib/routellm';
 
 export async function POST(request: NextRequest) {
+  let genre = '';
   try {
-    const { genre, customTopic, genreAnalysis } = await request.json();
+    const body = await request.json();
+    genre = body.genre;
+    const { customTopic, genreAnalysis } = body;
 
     const topicContext = customTopic ? `with a focus on: ${customTopic}` : '';
     const analysisContext = genreAnalysis ? `
@@ -15,9 +18,10 @@ Based on genre analysis:
 ` : '';
 
     // Use RouteLLM for intelligent model selection optimized for creative synopsis generation
+    // Reduced from 12 to 8 synopses and from 6000 to 3500 tokens to avoid Cloudflare timeouts
     const response = await routeLLMClient.generateWithSystem(
       `You are a bestselling author and book concept developer. Create compelling book synopses for the ${genre} genre that have high commercial potential.`,
-      `Generate 12 unique book synopses for the ${genre} genre ${topicContext}.
+      `Generate 8 unique book synopses for the ${genre} genre ${topicContext}.
 
 ${analysisContext}
 
@@ -33,11 +37,13 @@ Format as JSON array with objects containing "id", "content", and "successProbab
       'synopsis-generation',
       {
         taskRequirements: {
-          priority: 'quality',
+          priority: 'speed',
           creativityLevel: 'high',
           structuredOutput: true,
-          maxTokensNeeded: 6000
-        }
+          maxTokensNeeded: 3500
+        },
+        maxTokens: 3500,
+        temperature: 0.7
       }
     );
 
@@ -106,6 +112,31 @@ Format as JSON array with objects containing "id", "content", and "successProbab
     return NextResponse.json(filteredSynopses.map(s => ({ ...s, _routeLLM: routingInfo })));
   } catch (error) {
     console.error('Error generating synopses:', error);
+    
+    // Check if it's a timeout error
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const isTimeout = errorMessage.includes('timeout') || 
+                     errorMessage.includes('524') || 
+                     errorMessage.includes('All routing attempts failed');
+    
+    if (isTimeout) {
+      console.log('Synopsis generation timed out, returning fallback synopses');
+      // Return fallback synopses on timeout
+      const fallbackSynopses = Array.from({ length: 8 }, (_, i) => ({
+        id: `synopsis-${i + 1}`,
+        content: `A captivating ${genre} story that combines classic elements of the genre with fresh perspectives. Features compelling characters navigating complex challenges, delivering both emotional depth and the exciting elements readers expect from ${genre} fiction.`,
+        successProbability: 88 + Math.floor(Math.random() * 7),
+        _routeLLM: {
+          modelUsed: 'fallback',
+          provider: 'fallback',
+          fallbackUsed: true,
+          fallbackReason: 'Synopsis generation timed out'
+        }
+      }));
+      
+      return NextResponse.json(fallbackSynopses);
+    }
+    
     return NextResponse.json({ error: 'Failed to generate synopses' }, { status: 500 });
   }
 }

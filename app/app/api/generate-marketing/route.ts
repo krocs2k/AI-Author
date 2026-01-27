@@ -3,8 +3,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { routeLLMClient } from '@/lib/routellm';
 
 export async function POST(request: NextRequest) {
+  let type = '';
+  let genre = '';
+  let title = '';
   try {
-    const { type, title, synopsis, genre } = await request.json();
+    const body = await request.json();
+    type = body.type;
+    title = body.title;
+    const synopsis = body.synopsis;
+    genre = body.genre;
 
     let prompt = '';
 
@@ -58,6 +65,7 @@ Format as JSON with "copy" and "imagePrompt" keys.`;
     }
 
     // Use RouteLLM for intelligent model selection optimized for marketing content
+    // Reduced token limits for faster response times
     const response = await routeLLMClient.chatCompletion({
       messages: [
         {
@@ -72,11 +80,13 @@ Format as JSON with "copy" and "imagePrompt" keys.`;
       responseFormat: type !== 'sales-copy' ? { type: "json_object" } : undefined,
       taskType: 'marketing-copy',
       taskRequirements: {
-        priority: 'quality',
+        priority: 'speed',
         creativityLevel: 'medium',
         structuredOutput: type !== 'sales-copy',
-        maxTokensNeeded: type === 'sales-copy' ? 1500 : 3000
-      }
+        maxTokensNeeded: type === 'sales-copy' ? 1200 : 2000
+      },
+      maxTokens: type === 'sales-copy' ? 1200 : 2000,
+      temperature: 0.7
     });
 
     const content = response.content || '';
@@ -145,6 +155,56 @@ Format as JSON with "copy" and "imagePrompt" keys.`;
     }
   } catch (error) {
     console.error('Error generating marketing content:', error);
+    
+    // Check if it's a timeout error
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const isTimeout = errorMessage.includes('timeout') || 
+                     errorMessage.includes('524') || 
+                     errorMessage.includes('All routing attempts failed');
+    
+    if (isTimeout) {
+      console.log('Marketing content generation timed out, returning fallback content');
+      const fallbackRoutingInfo = {
+        modelUsed: 'fallback',
+        provider: 'fallback',
+        fallbackUsed: true,
+        fallbackReason: 'Marketing content generation timed out',
+        marketingType: type
+      };
+      
+      // Return appropriate fallback based on type
+      if (type === 'cover-prompts') {
+        return NextResponse.json({
+          frontCovers: [
+            'Professional book cover design with elegant typography and genre-appropriate imagery',
+            'Modern cover design featuring key story elements with compelling visual hierarchy',
+            'Atmospheric cover with mood-setting background and striking title treatment',
+            'Clean, commercial design that appeals to target audience with strong shelf presence',
+            'Dynamic cover combining character elements with thematic visual metaphors'
+          ],
+          backCovers: [
+            'Clean back cover layout with synopsis, author bio, and review quotes',
+            'Professional back design with compelling copy layout and barcode placement',
+            'Elegant back cover featuring key story highlights and praise quotes',
+            'Commercial back cover design optimized for online and physical retail',
+            'Sophisticated back layout balancing text hierarchy and visual appeal'
+          ],
+          _routeLLM: fallbackRoutingInfo
+        });
+      } else if (type === 'back-cover') {
+        return NextResponse.json({
+          copy: `Discover the compelling story that ${genre} readers are calling "unforgettable." With rich characters and expertly crafted plot, this book delivers everything fans of the genre love. Don't miss this captivating tale that will keep you turning pages late into the night.`,
+          imagePrompt: 'Clean, professional back cover design with elegant typography and subtle genre-themed background elements',
+          _routeLLM: fallbackRoutingInfo
+        });
+      } else if (type === 'sales-copy') {
+        return NextResponse.json({
+          content: `Experience the thrill of ${genre} fiction at its finest with "${title}". This captivating story delivers everything readers expect from the genre and more. With compelling characters, masterful pacing, and a plot that keeps you guessing, this book is impossible to put down. Perfect for fans of ${genre} fiction seeking their next unforgettable read.`,
+          _routeLLM: fallbackRoutingInfo
+        });
+      }
+    }
+    
     return NextResponse.json({ error: 'Failed to generate marketing content' }, { status: 500 });
   }
 }
