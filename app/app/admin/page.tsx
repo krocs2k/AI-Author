@@ -986,31 +986,57 @@ export default function AdminPage() {
                         <tbody>
                           {[
                             { group: 'OpenAI / Abacus RouteLLM', models: [
-                              { id: 'gpt-5', input: 1.25, output: 10 },
-                              { id: 'gpt-5-mini', input: 0.25, output: 2 },
-                              { id: 'gpt-5-nano', input: 0.05, output: 0.4 },
+                              // Latest GPT-5.x Series
+                              { id: 'gpt-5.5', input: 5.0, output: 30.0 },
+                              { id: 'gpt-5.5-pro', input: 30.0, output: 180.0 },
+                              { id: 'gpt-5.4', input: 2.5, output: 15.0 },
+                              { id: 'gpt-5.4-mini', input: 0.75, output: 4.5 },
+                              { id: 'gpt-5.4-nano', input: 0.2, output: 1.25 },
+                              // GPT-4.x Series
                               { id: 'gpt-4o', input: 2.5, output: 10 },
                               { id: 'gpt-4o-mini', input: 0.15, output: 0.6 },
                               { id: 'gpt-4.1', input: 2, output: 8 },
                               { id: 'gpt-4.1-mini', input: 0.4, output: 1.6 },
+                              // Reasoning Models
                               { id: 'o3', input: 2, output: 8 },
                               { id: 'o3-mini', input: 1.1, output: 4.4 },
                               { id: 'o4-mini', input: 1.1, output: 4.4 },
                             ]},
-                            { group: 'Anthropic', models: [
-                              { id: 'claude-opus-4', input: 15, output: 75 },
-                              { id: 'claude-sonnet-4', input: 3, output: 15 },
-                              { id: 'claude-3.5-sonnet', input: 3, output: 15 },
-                              { id: 'claude-3.5-haiku', input: 0.8, output: 4 },
+                            { group: 'Anthropic Claude', models: [
+                              // Opus Series
+                              { id: 'claude-opus-4.7', input: 5.0, output: 25.0 },
+                              { id: 'claude-opus-4.6', input: 5.0, output: 25.0 },
+                              { id: 'claude-opus-4.5', input: 5.0, output: 25.0 },
+                              { id: 'claude-opus-4.1', input: 15.0, output: 75.0 },
+                              { id: 'claude-opus-4', input: 15.0, output: 75.0 },
+                              // Sonnet Series
+                              { id: 'claude-sonnet-4.6', input: 3.0, output: 15.0 },
+                              { id: 'claude-sonnet-4.5', input: 3.0, output: 15.0 },
+                              { id: 'claude-sonnet-4', input: 3.0, output: 15.0 },
+                              { id: 'claude-3-5-sonnet', input: 3.0, output: 15.0 },
+                              // Haiku Series
+                              { id: 'claude-haiku-4.5', input: 1.0, output: 5.0 },
+                              { id: 'claude-3-5-haiku', input: 0.8, output: 4.0 },
                             ]},
-                            { group: 'Google', models: [
-                              { id: 'gemini-2.5-pro', input: 1.25, output: 10 },
+                            { group: 'Google Gemini', models: [
+                              // Gemini 3.1 (Latest)
+                              { id: 'gemini-3.1-pro', input: 2.0, output: 12.0 },
+                              { id: 'gemini-3.1-flash-lite', input: 0.25, output: 1.5 },
+                              { id: 'gemini-3.1-flash', input: 0.1, output: 0.4 },
+                              // Gemini 2.5
+                              { id: 'gemini-2.5-pro', input: 1.25, output: 10.0 },
                               { id: 'gemini-2.5-flash', input: 0.3, output: 2.5 },
                               { id: 'gemini-2.5-flash-lite', input: 0.1, output: 0.4 },
+                              // Gemini 2.0
                               { id: 'gemini-2.0-flash', input: 0.1, output: 0.4 },
+                              // Gemini 1.5
+                              { id: 'gemini-1.5-pro', input: 1.25, output: 5.0 },
+                              { id: 'gemini-1.5-flash', input: 0.075, output: 0.3 },
+                              // Gemini 1.0 (Legacy)
+                              { id: 'gemini-1.0-pro', input: 0.5, output: 1.5 },
                             ]},
                             { group: 'Auto-Routing', models: [
-                              { id: 'route-llm (default)', input: 2, output: 8 },
+                              { id: 'route-llm', input: 2, output: 8 },
                             ]},
                           ].map(({ group, models }) => (
                             <React.Fragment key={group}>
@@ -1021,7 +1047,7 @@ export default function AdminPage() {
                                 const isActive = m.id === llmConfig.ideaModel || m.id === llmConfig.writingModel;
                                 return (
                                   <tr key={m.id} className={`border-b border-gray-700/30 ${isActive ? 'text-teal-300' : 'text-gray-300'}`}>
-                                    <td className="py-1 pr-2 font-mono">
+                                    <td className="py-1 pr-2 font-mono text-[11px]">
                                       {m.id}
                                       {isActive && <span className="ml-1 text-teal-400 text-[9px]">●</span>}
                                     </td>
