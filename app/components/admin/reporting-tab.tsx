@@ -64,13 +64,13 @@ export function ReportingTab() {
       if (resetTimerRef.current) { clearTimeout(resetTimerRef.current); resetTimerRef.current = null; }
       setResetClicks(0);
 
-      if (!confirm('This will permanently erase ALL usage logs and prompt-cache entries. Continue?')) return;
+      if (!confirm('This will permanently erase ALL usage logs, prompt-cache entries, and reset all statistics (including book counts). Continue?')) return;
       setResetting(true);
       try {
         const res = await fetch('/api/admin/reports/reset', { method: 'POST' });
         if (!res.ok) throw new Error('Reset failed');
         const j = await res.json();
-        alert(`Reset complete — deleted ${j.deletedLogs} usage logs and ${j.deletedCache} cache entries.`);
+        alert(`Reset complete — deleted ${j.deletedLogs} usage logs and ${j.deletedCache} cache entries. All statistics have been cleared.`);
         fetchReport(period);
       } catch (e: any) {
         alert(e.message || 'Reset failed');
@@ -291,7 +291,7 @@ export function ReportingTab() {
                           <td className="py-2 pr-2 max-w-[240px] truncate" title={b.name}>{b.name}</td>
                           <td className="py-2 pr-2 text-xs">{b.user}</td>
                           <td className="py-2 pr-2">{b.genre}</td>
-                          <td className="text-right py-2 pr-2">{b.step}/5</td>
+                          <td className="text-right py-2 pr-2">{b.step}/7</td>
                           <td className="text-right py-2 pr-2">{(b.wordCount || 0).toLocaleString()}</td>
                           <td className="text-right py-2 pr-2">{b.calls}</td>
                           <td className="text-right py-2 font-semibold">{money(b.cost)}</td>

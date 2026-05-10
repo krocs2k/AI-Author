@@ -27,7 +27,18 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const period = searchParams.get('period') || 'month';
-  const since = periodStart(period);
+  let since = periodStart(period);
+
+  // Check if stats were reset — if so, use the later of periodStart and statsResetAt
+  try {
+    const config = await prisma.lLMConfig.findFirst({ select: { statsResetAt: true } });
+    if (config && (config as any).statsResetAt) {
+      const resetAt = new Date((config as any).statsResetAt);
+      if (resetAt > since) since = resetAt;
+    }
+  } catch (e) {
+    // Ignore — statsResetAt field may not exist yet
+  }
 
   // 1. All usage logs in period
   const logs = await prisma.lLMUsageLog.findMany({

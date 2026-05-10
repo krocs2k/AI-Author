@@ -2,7 +2,7 @@
 
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -964,6 +964,81 @@ export default function AdminPage() {
                       </div>
                     </>
                   )}
+
+                  {/* Model Pricing Reference */}
+                  <div className="p-4 bg-gray-700/30 rounded-lg space-y-3">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4 text-green-400" />
+                      <h4 className="text-white font-medium">Model Pricing Reference</h4>
+                    </div>
+                    <p className="text-xs text-gray-400">
+                      Approximate public pricing per 1M tokens. Used to estimate costs in the Reporting tab.
+                    </p>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-gray-400 border-b border-gray-600">
+                            <th className="text-left py-1.5 pr-2">Model</th>
+                            <th className="text-right py-1.5 pr-2">Input $/1M</th>
+                            <th className="text-right py-1.5">Output $/1M</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[
+                            { group: 'OpenAI / Abacus RouteLLM', models: [
+                              { id: 'gpt-5', input: 1.25, output: 10 },
+                              { id: 'gpt-5-mini', input: 0.25, output: 2 },
+                              { id: 'gpt-5-nano', input: 0.05, output: 0.4 },
+                              { id: 'gpt-4o', input: 2.5, output: 10 },
+                              { id: 'gpt-4o-mini', input: 0.15, output: 0.6 },
+                              { id: 'gpt-4.1', input: 2, output: 8 },
+                              { id: 'gpt-4.1-mini', input: 0.4, output: 1.6 },
+                              { id: 'o3', input: 2, output: 8 },
+                              { id: 'o3-mini', input: 1.1, output: 4.4 },
+                              { id: 'o4-mini', input: 1.1, output: 4.4 },
+                            ]},
+                            { group: 'Anthropic', models: [
+                              { id: 'claude-opus-4', input: 15, output: 75 },
+                              { id: 'claude-sonnet-4', input: 3, output: 15 },
+                              { id: 'claude-3.5-sonnet', input: 3, output: 15 },
+                              { id: 'claude-3.5-haiku', input: 0.8, output: 4 },
+                            ]},
+                            { group: 'Google', models: [
+                              { id: 'gemini-2.5-pro', input: 1.25, output: 10 },
+                              { id: 'gemini-2.5-flash', input: 0.3, output: 2.5 },
+                              { id: 'gemini-2.5-flash-lite', input: 0.1, output: 0.4 },
+                              { id: 'gemini-2.0-flash', input: 0.1, output: 0.4 },
+                            ]},
+                            { group: 'Auto-Routing', models: [
+                              { id: 'route-llm (default)', input: 2, output: 8 },
+                            ]},
+                          ].map(({ group, models }) => (
+                            <React.Fragment key={group}>
+                              <tr>
+                                <td colSpan={3} className="pt-3 pb-1 text-gray-400 font-semibold uppercase tracking-wider" style={{ fontSize: '10px' }}>{group}</td>
+                              </tr>
+                              {models.map(m => {
+                                const isActive = m.id === llmConfig.ideaModel || m.id === llmConfig.writingModel;
+                                return (
+                                  <tr key={m.id} className={`border-b border-gray-700/30 ${isActive ? 'text-teal-300' : 'text-gray-300'}`}>
+                                    <td className="py-1 pr-2 font-mono">
+                                      {m.id}
+                                      {isActive && <span className="ml-1 text-teal-400 text-[9px]">●</span>}
+                                    </td>
+                                    <td className="text-right py-1 pr-2">${m.input.toFixed(2)}</td>
+                                    <td className="text-right py-1">${m.output.toFixed(2)}</td>
+                                  </tr>
+                                );
+                              })}
+                            </React.Fragment>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <p className="text-[10px] text-gray-500 mt-2">
+                      * Prices are estimates based on public pricing. Actual costs may vary by provider plan and usage tier.
+                    </p>
+                  </div>
 
                   {/* API Communication Info */}
                   <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">

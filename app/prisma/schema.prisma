@@ -203,6 +203,9 @@ model LLMConfig {
   abacusModelsRefreshedAt DateTime?
   geminiModelsRefreshedAt  DateTime?
   
+  // Statistics reset tracking
+  statsResetAt        DateTime? // When stats were last cleared — reports filter from this date
+  
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }
