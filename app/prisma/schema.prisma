@@ -1,7 +1,8 @@
 
 generator client {
     provider = "prisma-client-js"
-    binaryTargets = ["native", "linux-musl-openssl-3.0.x", "linux-musl-arm64-openssl-3.0.x"]
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+    output = "/home/ubuntu/ai_author/app/node_modules/.prisma/client"
 }
 
 datasource db {
@@ -74,6 +75,33 @@ model GoogleSSOConfig {
 enum UserRole {
   USER
   ADMIN
+}
+
+// LLM API Configuration
+model LLMConfig {
+  id                  String   @id @default(cuid())
+  
+  // API Keys (encrypted at rest by DB)
+  abacusApiKey        String?
+  geminiApiKey        String?
+  
+  // Active provider selection
+  activeProvider      String   @default("abacus") // "abacus" or "gemini"
+  
+  // Model selections
+  ideaModel           String?  // Model ID for idea generation (synopsis, titles, genre analysis)
+  writingModel        String?  // Model ID for story writing (content, chapters)
+  
+  // Cached available models (JSON arrays)
+  abacusModels        Json?    // Cached list of Abacus.AI models
+  geminiModels        Json?    // Cached list of Gemini models
+  
+  // Last refresh timestamps
+  abacusModelsRefreshedAt DateTime?
+  geminiModelsRefreshedAt  DateTime?
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 model BookSession {

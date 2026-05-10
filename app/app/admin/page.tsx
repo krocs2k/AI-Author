@@ -2,14 +2,15 @@
 
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { BookOpen, Users, Settings, Trash2, Edit, Save, ArrowLeft, LogOut, Shield, CheckCircle, XCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { BookOpen, Users, Settings, Trash2, Edit, Save, ArrowLeft, LogOut, Shield, CheckCircle, XCircle, Brain, RefreshCw, Key, Sparkles, PenTool, Eye, EyeOff, Zap, CheckCircle2 } from 'lucide-react';
 
 interface User {
   id: string;
@@ -27,6 +28,29 @@ interface GoogleSSOConfig {
   enabled: boolean;
 }
 
+interface LLMModel {
+  id: string;
+  name: string;
+  description?: string;
+  category?: string;
+  inputTokenLimit?: number;
+  outputTokenLimit?: number;
+}
+
+interface LLMConfigState {
+  hasAbacusKey: boolean;
+  hasGeminiKey: boolean;
+  abacusApiKey: string | null;
+  geminiApiKey: string | null;
+  activeProvider: string;
+  ideaModel: string | null;
+  writingModel: string | null;
+  abacusModels: LLMModel[] | null;
+  geminiModels: LLMModel[] | null;
+  abacusModelsRefreshedAt: string | null;
+  geminiModelsRefreshedAt: string | null;
+}
+
 export default function AdminPage() {
   const { data: session, status } = useSession() || {};
   const router = useRouter();
@@ -42,6 +66,29 @@ export default function AdminPage() {
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ name: '', role: '' });
 
+  // LLM Config state
+  const [llmConfig, setLlmConfig] = useState<LLMConfigState>({
+    hasAbacusKey: false,
+    hasGeminiKey: false,
+    abacusApiKey: null,
+    geminiApiKey: null,
+    activeProvider: 'abacus',
+    ideaModel: null,
+    writingModel: null,
+    abacusModels: null,
+    geminiModels: null,
+    abacusModelsRefreshedAt: null,
+    geminiModelsRefreshedAt: null,
+  });
+  const [newAbacusKey, setNewAbacusKey] = useState('');
+  const [newGeminiKey, setNewGeminiKey] = useState('');
+  const [showAbacusKey, setShowAbacusKey] = useState(false);
+  const [showGeminiKey, setShowGeminiKey] = useState(false);
+  const [llmMessage, setLlmMessage] = useState('');
+  const [llmSaving, setLlmSaving] = useState(false);
+  const [refreshingAbacus, setRefreshingAbacus] = useState(false);
+  const [refreshingGemini, setRefreshingGemini] = useState(false);
+
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.replace('/login');
@@ -52,6 +99,7 @@ export default function AdminPage() {
       } else {
         fetchUsers();
         fetchGoogleConfig();
+        fetchLLMConfig();
       }
     }
   }, [status, session, router]);
@@ -158,6 +206,121 @@ export default function AdminPage() {
     }
   };
 
+  // ----- LLM Config Handlers -----
+  const fetchLLMConfig = async () => {
+    try {
+      const res = await fetch('/api/admin/llm-config');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.config) {
+          setLlmConfig(data.config);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching LLM config:', error);
+    }
+  };
+
+  const handleSaveApiKeys = async () => {
+    setLlmSaving(true);
+    setLlmMessage('');
+    try {
+      const body: any = { action: 'saveKeys' };
+      if (newAbacusKey) body.abacusApiKey = newAbacusKey;
+      if (newGeminiKey) body.geminiApiKey = newGeminiKey;
+
+      const res = await fetch('/api/admin/llm-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setLlmMessage('API keys saved successfully!');
+        setNewAbacusKey('');
+        setNewGeminiKey('');
+        setShowAbacusKey(false);
+        setShowGeminiKey(false);
+        await fetchLLMConfig();
+      } else {
+        setLlmMessage(data.error || 'Failed to save keys');
+      }
+    } catch (error) {
+      setLlmMessage('Error saving API keys');
+    } finally {
+      setLlmSaving(false);
+    }
+  };
+
+  const handleSaveSelection = async (updates: { activeProvider?: string; ideaModel?: string; writingModel?: string }) => {
+    setLlmSaving(true);
+    setLlmMessage('');
+    try {
+      const res = await fetch('/api/admin/llm-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'saveSelection', ...updates }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setLlmMessage('Selection saved!');
+        await fetchLLMConfig();
+      } else {
+        setLlmMessage(data.error || 'Failed to save selection');
+      }
+    } catch (error) {
+      setLlmMessage('Error saving selection');
+    } finally {
+      setLlmSaving(false);
+    }
+  };
+
+  const handleRefreshModels = async (provider: 'abacus' | 'gemini') => {
+    const setRefreshing = provider === 'abacus' ? setRefreshingAbacus : setRefreshingGemini;
+    setRefreshing(true);
+    setLlmMessage('');
+    try {
+      const res = await fetch('/api/admin/llm-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'refreshModels', provider }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setLlmMessage(`${provider === 'abacus' ? 'Abacus.AI' : 'Gemini'} models refreshed! Found ${data.models?.length || 0} models.`);
+        await fetchLLMConfig();
+      } else {
+        setLlmMessage(data.error || 'Failed to refresh models');
+      }
+    } catch (error) {
+      setLlmMessage('Error refreshing models');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleClearKey = async (provider: 'abacus' | 'gemini') => {
+    if (!confirm(`Are you sure you want to clear the ${provider === 'abacus' ? 'Abacus.AI' : 'Gemini'} API key?`)) return;
+    try {
+      await fetch('/api/admin/llm-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'clearKey', provider }),
+      });
+      setLlmMessage(`${provider === 'abacus' ? 'Abacus.AI' : 'Gemini'} key cleared`);
+      await fetchLLMConfig();
+    } catch (error) {
+      setLlmMessage('Error clearing key');
+    }
+  };
+
+  const getActiveModels = (): LLMModel[] => {
+    if (llmConfig.activeProvider === 'abacus') {
+      return (llmConfig.abacusModels as LLMModel[] | null) || [];
+    }
+    return (llmConfig.geminiModels as LLMModel[] | null) || [];
+  };
+
   if (status === 'loading' || loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
@@ -210,6 +373,10 @@ export default function AdminPage() {
             <TabsTrigger value="users" className="data-[state=active]:bg-teal-500">
               <Users className="h-4 w-4 mr-2" />
               Users
+            </TabsTrigger>
+            <TabsTrigger value="llm-config" className="data-[state=active]:bg-teal-500">
+              <Brain className="h-4 w-4 mr-2" />
+              LLM Config
             </TabsTrigger>
             <TabsTrigger value="google-sso" className="data-[state=active]:bg-teal-500">
               <Settings className="h-4 w-4 mr-2" />
@@ -338,6 +505,442 @@ export default function AdminPage() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* LLM Config Tab */}
+          <TabsContent value="llm-config">
+            <div className="space-y-6">
+              {/* Status message */}
+              {llmMessage && (
+                <div className={`p-3 rounded-lg text-sm ${
+                  llmMessage.includes('success') || llmMessage.includes('saved') || llmMessage.includes('refreshed')
+                    ? 'bg-green-500/20 border border-green-500/50 text-green-400'
+                    : 'bg-red-500/20 border border-red-500/50 text-red-400'
+                }`}>
+                  {llmMessage}
+                </div>
+              )}
+
+              {/* Section 1: API Keys */}
+              <Card className="bg-gray-800/50 border-gray-700">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center gap-2">
+                    <Key className="h-5 w-5 text-teal-400" />
+                    API Keys
+                  </CardTitle>
+                  <CardDescription className="text-gray-400">
+                    Configure your Abacus.AI and Google Gemini API keys
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Abacus.AI Key */}
+                  <div className="p-4 bg-gray-700/30 rounded-lg space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Zap className="h-4 w-4 text-blue-400" />
+                        <h4 className="text-white font-medium">Abacus.AI API Key</h4>
+                        {llmConfig.hasAbacusKey && (
+                          <Badge className="bg-green-500/20 text-green-400 border-green-500/50 text-xs">Connected</Badge>
+                        )}
+                      </div>
+                      {llmConfig.hasAbacusKey && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleClearKey('abacus')}
+                          className="text-red-400 hover:text-red-300 text-xs"
+                        >
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          Clear
+                        </Button>
+                      )}
+                    </div>
+                    {llmConfig.hasAbacusKey && (
+                      <p className="text-xs text-gray-400">Current key: {llmConfig.abacusApiKey}</p>
+                    )}
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Input
+                          type={showAbacusKey ? 'text' : 'password'}
+                          placeholder={llmConfig.hasAbacusKey ? 'Enter new key to replace...' : 'Enter Abacus.AI API key...'}
+                          value={newAbacusKey}
+                          onChange={(e) => setNewAbacusKey(e.target.value)}
+                          className="bg-gray-700/50 border-gray-600 text-white placeholder:text-gray-500 pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowAbacusKey(!showAbacusKey)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                        >
+                          {showAbacusKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Get your API key from{' '}
+                      <a href="https://apps.abacus.ai/chatllm/" target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:underline">
+                        apps.abacus.ai
+                      </a>{' '}
+                      → Settings → API Keys
+                    </p>
+                  </div>
+
+                  {/* Gemini Key */}
+                  <div className="p-4 bg-gray-700/30 rounded-lg space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-purple-400" />
+                        <h4 className="text-white font-medium">Google Gemini API Key</h4>
+                        {llmConfig.hasGeminiKey && (
+                          <Badge className="bg-green-500/20 text-green-400 border-green-500/50 text-xs">Connected</Badge>
+                        )}
+                      </div>
+                      {llmConfig.hasGeminiKey && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleClearKey('gemini')}
+                          className="text-red-400 hover:text-red-300 text-xs"
+                        >
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          Clear
+                        </Button>
+                      )}
+                    </div>
+                    {llmConfig.hasGeminiKey && (
+                      <p className="text-xs text-gray-400">Current key: {llmConfig.geminiApiKey}</p>
+                    )}
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Input
+                          type={showGeminiKey ? 'text' : 'password'}
+                          placeholder={llmConfig.hasGeminiKey ? 'Enter new key to replace...' : 'Enter Gemini API key...'}
+                          value={newGeminiKey}
+                          onChange={(e) => setNewGeminiKey(e.target.value)}
+                          className="bg-gray-700/50 border-gray-600 text-white placeholder:text-gray-500 pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowGeminiKey(!showGeminiKey)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                        >
+                          {showGeminiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Get your API key from{' '}
+                      <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:underline">
+                        aistudio.google.com
+                      </a>{' '}
+                      → Get API Key
+                    </p>
+                  </div>
+
+                  <Button
+                    onClick={handleSaveApiKeys}
+                    disabled={llmSaving || (!newAbacusKey && !newGeminiKey)}
+                    className="w-full bg-teal-500 hover:bg-teal-600 disabled:opacity-50"
+                  >
+                    {llmSaving ? <LoadingSpinner /> : <><Save className="h-4 w-4 mr-2" /> Save API Keys</>}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Section 2: Active Provider Selection */}
+              <Card className="bg-gray-800/50 border-gray-700">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center gap-2">
+                    <Zap className="h-5 w-5 text-teal-400" />
+                    Active API Provider
+                  </CardTitle>
+                  <CardDescription className="text-gray-400">
+                    Select which API to use for generating content
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Abacus.AI Option */}
+                    <button
+                      onClick={() => handleSaveSelection({ activeProvider: 'abacus' })}
+                      disabled={!llmConfig.hasAbacusKey}
+                      className={`p-4 rounded-lg border-2 text-left transition-all ${
+                        llmConfig.activeProvider === 'abacus'
+                          ? 'border-teal-500 bg-teal-500/10'
+                          : 'border-gray-600 bg-gray-700/30 hover:border-gray-500'
+                      } ${!llmConfig.hasAbacusKey ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Zap className="h-5 w-5 text-blue-400" />
+                          <span className="text-white font-medium">Abacus.AI</span>
+                        </div>
+                        {llmConfig.activeProvider === 'abacus' && (
+                          <CheckCircle2 className="h-5 w-5 text-teal-400" />
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-400">
+                        Access 30+ models including GPT, Claude, Gemini, DeepSeek, Llama & more via unified API
+                      </p>
+                      {!llmConfig.hasAbacusKey && (
+                        <p className="text-xs text-amber-400 mt-2">Add API key above to enable</p>
+                      )}
+                    </button>
+
+                    {/* Gemini Option */}
+                    <button
+                      onClick={() => handleSaveSelection({ activeProvider: 'gemini' })}
+                      disabled={!llmConfig.hasGeminiKey}
+                      className={`p-4 rounded-lg border-2 text-left transition-all ${
+                        llmConfig.activeProvider === 'gemini'
+                          ? 'border-teal-500 bg-teal-500/10'
+                          : 'border-gray-600 bg-gray-700/30 hover:border-gray-500'
+                      } ${!llmConfig.hasGeminiKey ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="h-5 w-5 text-purple-400" />
+                          <span className="text-white font-medium">Google Gemini</span>
+                        </div>
+                        {llmConfig.activeProvider === 'gemini' && (
+                          <CheckCircle2 className="h-5 w-5 text-teal-400" />
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-400">
+                        Direct access to Google Gemini models (Pro, Flash, Flash Lite)
+                      </p>
+                      {!llmConfig.hasGeminiKey && (
+                        <p className="text-xs text-amber-400 mt-2">Add API key above to enable</p>
+                      )}
+                    </button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Section 3: Available Models */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Abacus.AI Models */}
+                <Card className="bg-gray-800/50 border-gray-700">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-white text-base flex items-center gap-2">
+                        <Zap className="h-4 w-4 text-blue-400" />
+                        Abacus.AI Models
+                      </CardTitle>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRefreshModels('abacus')}
+                        disabled={refreshingAbacus || !llmConfig.hasAbacusKey}
+                        className="text-gray-400 hover:text-white text-xs"
+                      >
+                        <RefreshCw className={`h-3 w-3 mr-1 ${refreshingAbacus ? 'animate-spin' : ''}`} />
+                        Refresh
+                      </Button>
+                    </div>
+                    {llmConfig.abacusModelsRefreshedAt && (
+                      <p className="text-xs text-gray-500">
+                        Last refreshed: {new Date(llmConfig.abacusModelsRefreshedAt).toLocaleString()}
+                      </p>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    {!llmConfig.hasAbacusKey ? (
+                      <p className="text-sm text-gray-500 text-center py-4">Add Abacus.AI API key to view models</p>
+                    ) : (
+                      <div className="max-h-64 overflow-y-auto space-y-1 pr-1">
+                        {((llmConfig.abacusModels as LLMModel[] | null) || []).length === 0 ? (
+                          <p className="text-sm text-gray-500 text-center py-4">
+                            Click Refresh to load available models
+                          </p>
+                        ) : (
+                          ((llmConfig.abacusModels as LLMModel[] | null) || []).map((model: LLMModel) => (
+                            <div
+                              key={model.id}
+                              className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-gray-700/50 text-sm"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <span className="text-gray-200 truncate block">{model.name || model.id}</span>
+                              </div>
+                              {model.category && (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-gray-600 text-gray-400 ml-2 shrink-0">
+                                  {model.category}
+                                </Badge>
+                              )}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Gemini Models */}
+                <Card className="bg-gray-800/50 border-gray-700">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-white text-base flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-purple-400" />
+                        Gemini Models
+                      </CardTitle>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRefreshModels('gemini')}
+                        disabled={refreshingGemini || !llmConfig.hasGeminiKey}
+                        className="text-gray-400 hover:text-white text-xs"
+                      >
+                        <RefreshCw className={`h-3 w-3 mr-1 ${refreshingGemini ? 'animate-spin' : ''}`} />
+                        Refresh
+                      </Button>
+                    </div>
+                    {llmConfig.geminiModelsRefreshedAt && (
+                      <p className="text-xs text-gray-500">
+                        Last refreshed: {new Date(llmConfig.geminiModelsRefreshedAt).toLocaleString()}
+                      </p>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    {!llmConfig.hasGeminiKey ? (
+                      <p className="text-sm text-gray-500 text-center py-4">Add Gemini API key to view models</p>
+                    ) : (
+                      <div className="max-h-64 overflow-y-auto space-y-1 pr-1">
+                        {((llmConfig.geminiModels as LLMModel[] | null) || []).length === 0 ? (
+                          <p className="text-sm text-gray-500 text-center py-4">
+                            Click Refresh to load available models
+                          </p>
+                        ) : (
+                          ((llmConfig.geminiModels as LLMModel[] | null) || []).map((model: LLMModel) => (
+                            <div
+                              key={model.id}
+                              className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-gray-700/50 text-sm"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <span className="text-gray-200 truncate block">{model.name || model.id}</span>
+                              </div>
+                              {model.category && (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-gray-600 text-gray-400 ml-2 shrink-0">
+                                  {model.category}
+                                </Badge>
+                              )}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Section 4: Model Assignment */}
+              <Card className="bg-gray-800/50 border-gray-700">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center gap-2">
+                    <PenTool className="h-5 w-5 text-teal-400" />
+                    Model Assignment
+                  </CardTitle>
+                  <CardDescription className="text-gray-400">
+                    Choose which model handles idea generation vs. story writing for the active provider ({llmConfig.activeProvider === 'abacus' ? 'Abacus.AI' : 'Google Gemini'})
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {getActiveModels().length === 0 ? (
+                    <div className="text-center py-6">
+                      <p className="text-gray-400 mb-2">No models loaded for {llmConfig.activeProvider === 'abacus' ? 'Abacus.AI' : 'Google Gemini'}</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRefreshModels(llmConfig.activeProvider as 'abacus' | 'gemini')}
+                        className="border-gray-600 text-gray-300 hover:text-white"
+                      >
+                        <RefreshCw className="h-3 w-3 mr-2" />
+                        Load Models
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Idea Generation Model */}
+                      <div className="p-4 bg-gray-700/30 rounded-lg space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="h-4 w-4 text-amber-400" />
+                          <h4 className="text-white font-medium">Idea Generation Model</h4>
+                        </div>
+                        <p className="text-xs text-gray-400">
+                          Used for genre analysis, synopsis generation, title generation, and chapter planning
+                        </p>
+                        <select
+                          value={llmConfig.ideaModel || ''}
+                          onChange={(e) => handleSaveSelection({ ideaModel: e.target.value })}
+                          className="w-full bg-gray-700 border border-gray-600 text-white rounded-md px-3 py-2 text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
+                        >
+                          <option value="">Use default (auto-routing)</option>
+                          {getActiveModels().map((model: LLMModel) => (
+                            <option key={model.id} value={model.id}>
+                              {model.name || model.id}{model.category ? ` [${model.category}]` : ''}
+                            </option>
+                          ))}
+                        </select>
+                        {llmConfig.ideaModel && (
+                          <p className="text-xs text-teal-400">
+                            Currently using: {llmConfig.ideaModel}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Writing Model */}
+                      <div className="p-4 bg-gray-700/30 rounded-lg space-y-3">
+                        <div className="flex items-center gap-2">
+                          <PenTool className="h-4 w-4 text-emerald-400" />
+                          <h4 className="text-white font-medium">Story Writing Model</h4>
+                        </div>
+                        <p className="text-xs text-gray-400">
+                          Used for writing chapters, forward/intro content, character development, and marketing copy
+                        </p>
+                        <select
+                          value={llmConfig.writingModel || ''}
+                          onChange={(e) => handleSaveSelection({ writingModel: e.target.value })}
+                          className="w-full bg-gray-700 border border-gray-600 text-white rounded-md px-3 py-2 text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
+                        >
+                          <option value="">Use default (auto-routing)</option>
+                          {getActiveModels().map((model: LLMModel) => (
+                            <option key={model.id} value={model.id}>
+                              {model.name || model.id}{model.category ? ` [${model.category}]` : ''}
+                            </option>
+                          ))}
+                        </select>
+                        {llmConfig.writingModel && (
+                          <p className="text-xs text-teal-400">
+                            Currently using: {llmConfig.writingModel}
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {/* API Communication Info */}
+                  <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                    <h4 className="text-blue-400 font-medium mb-2">How API Communication Works</h4>
+                    {llmConfig.activeProvider === 'abacus' ? (
+                      <div className="text-sm text-gray-300 space-y-1">
+                        <p><strong>Endpoint:</strong> <code className="bg-gray-700 px-1 rounded text-xs">POST https://routellm.abacus.ai/v1/chat/completions</code></p>
+                        <p><strong>Auth:</strong> <code className="bg-gray-700 px-1 rounded text-xs">Authorization: Bearer YOUR_API_KEY</code></p>
+                        <p><strong>Format:</strong> OpenAI-compatible chat completions API</p>
+                        <p><strong>Model param:</strong> <code className="bg-gray-700 px-1 rounded text-xs">model: &quot;{llmConfig.ideaModel || 'route-llm'}&quot;</code></p>
+                        <p className="text-xs text-gray-400 mt-2">Supports streaming, JSON mode, tool calling, and multimodal inputs.</p>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-300 space-y-1">
+                        <p><strong>Endpoint:</strong> <code className="bg-gray-700 px-1 rounded text-xs">POST https://generativelanguage.googleapis.com/v1beta/models/MODEL:generateContent</code></p>
+                        <p><strong>Auth:</strong> <code className="bg-gray-700 px-1 rounded text-xs">?key=YOUR_API_KEY</code></p>
+                        <p><strong>Format:</strong> Google Gemini native API (contents/parts format)</p>
+                        <p><strong>Model param:</strong> Specified in URL path: <code className="bg-gray-700 px-1 rounded text-xs">/models/{llmConfig.ideaModel || 'gemini-2.5-flash'}</code></p>
+                        <p className="text-xs text-gray-400 mt-2">Supports streaming, JSON mode, multimodal inputs, and structured output.</p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           {/* Google SSO Tab */}

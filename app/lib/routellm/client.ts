@@ -1,6 +1,7 @@
 
 import { LLMResponse, TaskType, TaskRequirements, RoutingDecision } from './types';
 import { routeLLMRouter } from './router';
+import { getActiveLLMConfig, isIdeaTask, isWritingTask } from './config-loader';
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -24,8 +25,46 @@ export class RouteLLMClient {
    * Main method for chat completions with intelligent routing
    */
   public async chatCompletion(request: ChatCompletionRequest): Promise<LLMResponse> {
+    // Load active config from database
+    const activeConfig = await getActiveLLMConfig();
+    
+    // Determine which model to use based on task type
     const taskType = request.taskType || 'general';
+    let overrideModel: string | null = null;
+    
+    if (isIdeaTask(taskType) && activeConfig.ideaModel) {
+      overrideModel = activeConfig.ideaModel;
+    } else if (isWritingTask(taskType) && activeConfig.writingModel) {
+      overrideModel = activeConfig.writingModel;
+    } else if (activeConfig.ideaModel) {
+      // Fall back to idea model for general tasks
+      overrideModel = activeConfig.ideaModel;
+    }
+
+    // If using Gemini provider, use Gemini API directly
+    if (activeConfig.activeProvider === 'gemini' && activeConfig.geminiApiKey) {
+      return this.callGeminiAPI(request, activeConfig.geminiApiKey, overrideModel || 'gemini-2.5-flash');
+    }
+
+    // Use Abacus.AI / RouteLLM routing
     const routing = routeLLMRouter.route(taskType, request.taskRequirements);
+    
+    // Override the API key if the admin configured one
+    if (activeConfig.abacusApiKey) {
+      routing.selectedProvider = {
+        ...routing.selectedProvider,
+        apiKey: activeConfig.abacusApiKey,
+      };
+    }
+    
+    // Override the model if admin selected a specific one
+    if (overrideModel) {
+      routing.selectedModel = {
+        ...routing.selectedModel,
+        id: overrideModel,
+        name: overrideModel,
+      };
+    }
     
     let lastError: Error | null = null;
     const failedModels: string[] = [];
@@ -45,6 +84,13 @@ export class RouteLLMClient {
         const fallbackRouting = routeLLMRouter.getFallbackRouting(routing, failedModels);
         if (fallbackRouting && attempt < this.maxRetries - 1) {
           currentRouting = fallbackRouting;
+          // Override API key on fallback too
+          if (activeConfig.abacusApiKey) {
+            currentRouting.selectedProvider = {
+              ...currentRouting.selectedProvider,
+              apiKey: activeConfig.abacusApiKey,
+            };
+          }
           console.log(`Trying fallback: ${currentRouting.selectedModel.name}`);
           
           // Add delay before retry
@@ -56,6 +102,102 @@ export class RouteLLMClient {
     }
     
     throw new Error(`All routing attempts failed. Last error: ${lastError?.message || 'Unknown error'}`);
+  }
+
+  /**
+   * Call the Google Gemini API directly
+   */
+  private async callGeminiAPI(
+    request: ChatCompletionRequest,
+    apiKey: string,
+    modelId: string
+  ): Promise<LLMResponse> {
+    // Convert OpenAI-style messages to Gemini format
+    const systemInstruction = request.messages
+      .filter(m => m.role === 'system')
+      .map(m => m.content)
+      .join('\n');
+    
+    const contents = request.messages
+      .filter(m => m.role !== 'system')
+      .map(m => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }]
+      }));
+
+    const requestBody: any = {
+      contents,
+      generationConfig: {
+        temperature: request.temperature || 0.7,
+        maxOutputTokens: request.maxTokens || 4000,
+      },
+    };
+
+    if (systemInstruction) {
+      requestBody.systemInstruction = { parts: [{ text: systemInstruction }] };
+    }
+
+    if (request.responseFormat?.type === 'json_object') {
+      requestBody.generationConfig.responseMimeType = 'application/json';
+    }
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`;
+    
+    const controller = new AbortController();
+    const timeoutMs = 55000;
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal,
+      });
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === 'AbortError') {
+        throw new Error(`Gemini request timed out after ${timeoutMs / 1000} seconds`);
+      }
+      throw fetchError;
+    }
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Gemini API request failed (${response.status}): ${errorText}`);
+    }
+
+    const data = await response.json();
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    if (!content.trim()) {
+      throw new Error('Empty response from Gemini API');
+    }
+
+    return {
+      content,
+      model: modelId,
+      provider: 'Gemini',
+      usage: data.usageMetadata ? {
+        promptTokens: data.usageMetadata.promptTokenCount || 0,
+        completionTokens: data.usageMetadata.candidatesTokenCount || 0,
+        totalTokens: data.usageMetadata.totalTokenCount || 0,
+      } : undefined,
+      metadata: {
+        attemptNumber: 1,
+        fallbackUsed: false,
+        routingDecision: {
+          selectedModel: { id: modelId, name: modelId, provider: 'gemini', capabilities: { creative: 90, analytical: 90, technical: 90, conversational: 90, longForm: 90, structured: 90 }, costTier: 'medium', qualityScore: 90, maxTokens: 8192, contextWindow: 1000000 },
+          selectedProvider: { name: 'Gemini', baseURL: url, apiKey: '***', models: [], priority: 1, isAvailable: true },
+          reasoning: `Using Gemini model ${modelId} via direct API`,
+          fallbackModels: [],
+          confidence: 0.9,
+        }
+      }
+    };
   }
 
   /**
