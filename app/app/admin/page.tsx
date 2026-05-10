@@ -972,7 +972,7 @@ export default function AdminPage() {
                       <h4 className="text-white font-medium">Model Pricing Reference</h4>
                     </div>
                     <p className="text-xs text-gray-400">
-                      Approximate public pricing per 1M tokens. Used to estimate costs in the Reporting tab.
+                      Comprehensive pricing per 1M tokens for all 82 text models available via Abacus.AI RouteLLM. Used to estimate costs in the Reporting tab.
                     </p>
                     <div className="overflow-x-auto">
                       <table className="w-full text-xs">
@@ -985,58 +985,118 @@ export default function AdminPage() {
                         </thead>
                         <tbody>
                           {[
-                            { group: 'OpenAI / Abacus RouteLLM', models: [
-                              // Latest GPT-5.x Series
+                            { group: 'Auto-Routing', models: [
+                              { id: 'route-llm', input: 3.0, output: 15.0 },
+                            ]},
+                            { group: 'OpenAI', models: [
+                              // GPT-5.5
                               { id: 'gpt-5.5', input: 5.0, output: 30.0 },
-                              { id: 'gpt-5.5-pro', input: 30.0, output: 180.0 },
+                              { id: 'chat-latest (gpt-5.5 instant)', input: 5.0, output: 30.0 },
+                              // GPT-5.4
                               { id: 'gpt-5.4', input: 2.5, output: 15.0 },
                               { id: 'gpt-5.4-mini', input: 0.75, output: 4.5 },
                               { id: 'gpt-5.4-nano', input: 0.2, output: 1.25 },
-                              // GPT-4.x Series
-                              { id: 'gpt-4o', input: 2.5, output: 10 },
-                              { id: 'gpt-4o-mini', input: 0.15, output: 0.6 },
-                              { id: 'gpt-4.1', input: 2, output: 8 },
+                              // GPT-5.3
+                              { id: 'gpt-5.3-chat-latest', input: 1.75, output: 14.0 },
+                              { id: 'gpt-5.3-codex', input: 1.75, output: 14.0 },
+                              { id: 'gpt-5.3-codex-xhigh', input: 1.75, output: 14.0 },
+                              // GPT-5.2
+                              { id: 'gpt-5.2', input: 1.75, output: 14.0 },
+                              { id: 'gpt-5.2-chat-latest', input: 1.75, output: 14.0 },
+                              { id: 'gpt-5.2-codex', input: 1.75, output: 14.0 },
+                              // GPT-5.1
+                              { id: 'gpt-5.1', input: 1.25, output: 10.0 },
+                              { id: 'gpt-5.1-chat-latest', input: 1.25, output: 10.0 },
+                              { id: 'gpt-5.1-codex', input: 1.25, output: 10.0 },
+                              // GPT-5
+                              { id: 'gpt-5', input: 1.25, output: 10.0 },
+                              { id: 'gpt-5-mini', input: 0.25, output: 2.0 },
+                              { id: 'gpt-5-nano', input: 0.05, output: 0.4 },
+                              { id: 'gpt-5-codex', input: 1.25, output: 10.0 },
+                              // GPT-4.x
+                              { id: 'gpt-4.1', input: 2.0, output: 8.0 },
                               { id: 'gpt-4.1-mini', input: 0.4, output: 1.6 },
-                              // Reasoning Models
-                              { id: 'o3', input: 2, output: 8 },
+                              { id: 'gpt-4.1-nano', input: 0.1, output: 0.4 },
+                              { id: 'gpt-4o-2024-11-20', input: 2.5, output: 10.0 },
+                              { id: 'gpt-4o-mini', input: 0.15, output: 0.6 },
+                              // Reasoning
+                              { id: 'o3', input: 2.0, output: 8.0 },
+                              { id: 'o3-pro', input: 20.0, output: 40.0 },
                               { id: 'o3-mini', input: 1.1, output: 4.4 },
                               { id: 'o4-mini', input: 1.1, output: 4.4 },
+                              // Open Source
+                              { id: 'openai/gpt-oss-120b', input: 0.08, output: 0.44 },
                             ]},
                             { group: 'Anthropic Claude', models: [
-                              // Opus Series
-                              { id: 'claude-opus-4.7', input: 5.0, output: 25.0 },
-                              { id: 'claude-opus-4.6', input: 5.0, output: 25.0 },
-                              { id: 'claude-opus-4.5', input: 5.0, output: 25.0 },
-                              { id: 'claude-opus-4.1', input: 15.0, output: 75.0 },
-                              { id: 'claude-opus-4', input: 15.0, output: 75.0 },
-                              // Sonnet Series
-                              { id: 'claude-sonnet-4.6', input: 3.0, output: 15.0 },
-                              { id: 'claude-sonnet-4.5', input: 3.0, output: 15.0 },
-                              { id: 'claude-sonnet-4', input: 3.0, output: 15.0 },
-                              { id: 'claude-3-5-sonnet', input: 3.0, output: 15.0 },
-                              // Haiku Series
-                              { id: 'claude-haiku-4.5', input: 1.0, output: 5.0 },
-                              { id: 'claude-3-5-haiku', input: 0.8, output: 4.0 },
+                              { id: 'claude-opus-4-7', input: 5.0, output: 25.0 },
+                              { id: 'claude-opus-4-7-xhigh', input: 5.0, output: 25.0 },
+                              { id: 'claude-opus-4-6', input: 5.0, output: 25.0 },
+                              { id: 'claude-opus-4-5-20251101', input: 5.0, output: 25.0 },
+                              { id: 'claude-opus-4-1-20250805', input: 15.0, output: 75.0 },
+                              { id: 'claude-sonnet-4-6', input: 3.0, output: 15.0 },
+                              { id: 'claude-sonnet-4-5-20250929', input: 3.0, output: 15.0 },
+                              { id: 'claude-haiku-4-5-20251001', input: 1.0, output: 5.0 },
                             ]},
                             { group: 'Google Gemini', models: [
-                              // Gemini 3.1 (Latest)
-                              { id: 'gemini-3.1-pro', input: 2.0, output: 12.0 },
-                              { id: 'gemini-3.1-flash-lite', input: 0.25, output: 1.5 },
-                              { id: 'gemini-3.1-flash', input: 0.1, output: 0.4 },
-                              // Gemini 2.5
+                              { id: 'gemini-3.1-pro-preview', input: 2.0, output: 12.0 },
+                              { id: 'gemini-3.1-flash-lite-preview', input: 0.25, output: 1.5 },
+                              { id: 'gemini-3.1-flash-image-preview', input: 0.5, output: 3.0 },
+                              { id: 'gemini-3-pro-image-preview', input: 2.0, output: 12.0 },
+                              { id: 'gemini-3-flash-preview', input: 0.5, output: 3.0 },
                               { id: 'gemini-2.5-pro', input: 1.25, output: 10.0 },
                               { id: 'gemini-2.5-flash', input: 0.3, output: 2.5 },
-                              { id: 'gemini-2.5-flash-lite', input: 0.1, output: 0.4 },
-                              // Gemini 2.0
-                              { id: 'gemini-2.0-flash', input: 0.1, output: 0.4 },
-                              // Gemini 1.5
-                              { id: 'gemini-1.5-pro', input: 1.25, output: 5.0 },
-                              { id: 'gemini-1.5-flash', input: 0.075, output: 0.3 },
-                              // Gemini 1.0 (Legacy)
-                              { id: 'gemini-1.0-pro', input: 0.5, output: 1.5 },
+                              { id: 'gemini-2.5-flash-image', input: 0.3, output: 30.0 },
+                              { id: 'google/gemma-4-31b-it', input: 0.14, output: 0.4 },
                             ]},
-                            { group: 'Auto-Routing', models: [
-                              { id: 'route-llm', input: 2, output: 8 },
+                            { group: 'Meta Llama', models: [
+                              { id: 'meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8', input: 0.14, output: 0.59 },
+                              { id: 'meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo', input: 3.5, output: 3.5 },
+                              { id: 'meta-llama/Meta-Llama-3.1-8B-Instruct', input: 0.02, output: 0.05 },
+                              { id: 'llama-3.3-70b-versatile', input: 0.59, output: 0.79 },
+                            ]},
+                            { group: 'Alibaba Qwen', models: [
+                              { id: 'qwen-2.5-coder-32b', input: 0.79, output: 0.79 },
+                              { id: 'Qwen/Qwen2.5-72B-Instruct', input: 0.11, output: 0.38 },
+                              { id: 'Qwen/QwQ-32B', input: 0.4, output: 0.4 },
+                              { id: 'Qwen/Qwen3-235B-A22B-Instruct-2507', input: 0.13, output: 0.6 },
+                              { id: 'Qwen/Qwen3-32B', input: 0.09, output: 0.29 },
+                              { id: 'qwen/qwen3-coder-480b-a35b-instruct', input: 0.29, output: 1.2 },
+                              { id: 'qwen3.6-plus', input: 0.5, output: 3.0 },
+                            ]},
+                            { group: 'xAI Grok', models: [
+                              { id: 'grok-2-1212', input: 2.0, output: 10.0 },
+                              { id: 'grok-3', input: 3.0, output: 15.0 },
+                              { id: 'grok-3-mini', input: 0.3, output: 0.5 },
+                              { id: 'grok-4-0709', input: 3.0, output: 15.0 },
+                              { id: 'grok-4-fast-non-reasoning', input: 0.2, output: 0.5 },
+                              { id: 'grok-4-1-fast-non-reasoning', input: 0.2, output: 0.5 },
+                              { id: 'grok-4.20-beta-0309-non-reasoning', input: 2.0, output: 6.0 },
+                              { id: 'grok-4.3', input: 1.25, output: 2.5 },
+                              { id: 'grok-code-fast-1', input: 0.2, output: 1.5 },
+                            ]},
+                            { group: 'Moonshot Kimi', models: [
+                              { id: 'kimi-k2-turbo-preview', input: 0.15, output: 8.0 },
+                              { id: 'kimi-k2.5', input: 0.6, output: 3.0 },
+                              { id: 'kimi-k2.6', input: 0.95, output: 4.0 },
+                            ]},
+                            { group: 'DeepSeek', models: [
+                              { id: 'deepseek/deepseek-v3.1', input: 0.55, output: 1.66 },
+                              { id: 'deepseek-ai/DeepSeek-V3.1-Terminus', input: 0.27, output: 1.0 },
+                              { id: 'deepseek-ai/DeepSeek-R1', input: 3.0, output: 7.0 },
+                              { id: 'deepseek-ai/DeepSeek-V3.2', input: 0.27, output: 0.4 },
+                              { id: 'deepseek-v4-flash', input: 0.14, output: 0.28 },
+                              { id: 'deepseek-v4-pro', input: 1.74, output: 3.48 },
+                            ]},
+                            { group: 'Zhipu GLM', models: [
+                              { id: 'zai-org/glm-4.5', input: 0.6, output: 2.2 },
+                              { id: 'zai-org/glm-4.6', input: 0.6, output: 2.2 },
+                              { id: 'zai-org/glm-4.7', input: 0.6, output: 2.2 },
+                              { id: 'zai-org/glm-5', input: 1.0, output: 3.2 },
+                              { id: 'zai-org/glm-5.1', input: 1.4, output: 4.4 },
+                            ]},
+                            { group: 'Other', models: [
+                              { id: 'm2.7 (MiniMax)', input: 0.3, output: 1.2 },
+                              { id: 'mimo-v2-pro', input: 1.0, output: 3.0 },
                             ]},
                           ].map(({ group, models }) => (
                             <React.Fragment key={group}>
