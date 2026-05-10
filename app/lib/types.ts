@@ -165,6 +165,8 @@ export interface WizardStep {
 
 export interface BookSession {
   id: string;
+  name?: string | null;
+  folderId?: string | null;
   selectedGenre?: string;
   genreAnalysis?: GenreAnalysis;
   authorAnalysis?: AuthorAnalysis;

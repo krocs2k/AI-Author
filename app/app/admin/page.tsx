@@ -10,7 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Badge } from '@/components/ui/badge';
-import { BookOpen, Users, Settings, Trash2, Edit, Save, ArrowLeft, LogOut, Shield, CheckCircle, XCircle, Brain, RefreshCw, Key, Sparkles, PenTool, Eye, EyeOff, Zap, CheckCircle2 } from 'lucide-react';
+import { BookOpen, Users, Settings, Trash2, Edit, Save, ArrowLeft, LogOut, Shield, CheckCircle, XCircle, Brain, RefreshCw, Key, Sparkles, PenTool, Eye, EyeOff, Zap, CheckCircle2, BarChart3, DollarSign, TrendingDown, Lightbulb, Database } from 'lucide-react';
+import { ReportingTab } from '@/components/admin/reporting-tab';
 
 interface User {
   id: string;
@@ -381,6 +382,10 @@ export default function AdminPage() {
             <TabsTrigger value="google-sso" className="data-[state=active]:bg-teal-500">
               <Settings className="h-4 w-4 mr-2" />
               Google SSO
+            </TabsTrigger>
+            <TabsTrigger value="reporting" className="data-[state=active]:bg-teal-500">
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Reporting
             </TabsTrigger>
           </TabsList>
 
@@ -1018,6 +1023,11 @@ export default function AdminPage() {
                 </Button>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Reporting Tab */}
+          <TabsContent value="reporting">
+            <ReportingTab />
           </TabsContent>
         </Tabs>
 

@@ -2,6 +2,14 @@
 import { LLMResponse, TaskType, TaskRequirements, RoutingDecision } from './types';
 import { routeLLMRouter } from './router';
 import { getActiveLLMConfig, isIdeaTask, isWritingTask } from './config-loader';
+import {
+  buildCacheKey,
+  checkPromptCache,
+  writePromptCache,
+  logUsage,
+  normalizeUsage,
+  isCacheable,
+} from './instrumentation';
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -15,6 +23,11 @@ export interface ChatCompletionRequest {
   responseFormat?: { type: 'json_object' };
   taskType?: TaskType;
   taskRequirements?: Partial<TaskRequirements>;
+  // Instrumentation context
+  userId?: string | null;
+  sessionId?: string | null;
+  // Force-disable cache (for content unique per book)
+  bypassCache?: boolean;
 }
 
 export class RouteLLMClient {
@@ -25,6 +38,7 @@ export class RouteLLMClient {
    * Main method for chat completions with intelligent routing
    */
   public async chatCompletion(request: ChatCompletionRequest): Promise<LLMResponse> {
+    const startedAt = Date.now();
     // Load active config from database
     const activeConfig = await getActiveLLMConfig();
     
@@ -41,9 +55,52 @@ export class RouteLLMClient {
       overrideModel = activeConfig.ideaModel;
     }
 
+    const effectiveModel = overrideModel || (activeConfig.activeProvider === 'gemini' ? 'gemini-2.5-flash' : 'route-llm');
+    const provider = activeConfig.activeProvider === 'gemini' ? 'Gemini' : 'Abacus';
+
+    // ===== Prompt cache lookup =====
+    const canCache = !request.bypassCache && isCacheable(taskType);
+    const cacheKey = canCache ? buildCacheKey(taskType, effectiveModel, request.messages) : null;
+    if (cacheKey) {
+      const cached = await checkPromptCache(cacheKey);
+      if (cached) {
+        const dur = Date.now() - startedAt;
+        // log cache hit usage
+        logUsage({
+          userId: request.userId,
+          sessionId: request.sessionId,
+          taskType,
+          provider,
+          model: cached.model,
+          promptTokens: cached.promptTokens,
+          completionTokens: cached.completionTokens,
+          totalTokens: cached.promptTokens + cached.completionTokens,
+          cacheHit: true,
+          durationMs: dur,
+        }).catch(() => {});
+        return {
+          content: cached.response,
+          model: cached.model,
+          provider,
+          usage: {
+            promptTokens: cached.promptTokens,
+            completionTokens: cached.completionTokens,
+            totalTokens: cached.promptTokens + cached.completionTokens,
+          },
+          metadata: {
+            attemptNumber: 1,
+            fallbackUsed: false,
+            cacheHit: true,
+          } as any,
+        };
+      }
+    }
+
     // If using Gemini provider, use Gemini API directly
     if (activeConfig.activeProvider === 'gemini' && activeConfig.geminiApiKey) {
-      return this.callGeminiAPI(request, activeConfig.geminiApiKey, overrideModel || 'gemini-2.5-flash');
+      const resp = await this.callGeminiAPI(request, activeConfig.geminiApiKey, overrideModel || 'gemini-2.5-flash');
+      await this._afterCall(resp, request, taskType, cacheKey, startedAt);
+      return resp;
     }
 
     // Use Abacus.AI / RouteLLM routing
@@ -73,6 +130,7 @@ export class RouteLLMClient {
     for (let attempt = 0; attempt < this.maxRetries; attempt++) {
       try {
         const response = await this.makeAPICall(currentRouting, request, attempt + 1);
+        await this._afterCall(response, request, taskType, cacheKey, startedAt);
         return response;
       } catch (error) {
         lastError = error as Error;
@@ -271,7 +329,11 @@ export class RouteLLMClient {
       content,
       model: data.model || selectedModel.id,
       provider: selectedProvider.name,
-      usage: data.usage || undefined,
+      usage: data.usage ? {
+        promptTokens: data.usage.prompt_tokens ?? data.usage.promptTokens ?? 0,
+        completionTokens: data.usage.completion_tokens ?? data.usage.completionTokens ?? 0,
+        totalTokens: data.usage.total_tokens ?? data.usage.totalTokens ?? 0,
+      } : undefined,
       metadata: {
         attemptNumber: attempt,
         fallbackUsed: attempt > 1,
@@ -314,6 +376,47 @@ export class RouteLLMClient {
       taskType,
       ...options
     });
+  }
+
+  /**
+   * Post-call: log usage + write cache (fire-and-forget, errors swallowed)
+   */
+  private async _afterCall(
+    response: LLMResponse,
+    request: ChatCompletionRequest,
+    taskType: TaskType,
+    cacheKey: string | null,
+    startedAt: number
+  ): Promise<void> {
+    try {
+      const usage = normalizeUsage(response.usage);
+      const dur = Date.now() - startedAt;
+      logUsage({
+        userId: request.userId,
+        sessionId: request.sessionId,
+        taskType,
+        provider: response.provider || 'unknown',
+        model: response.model || 'unknown',
+        promptTokens: usage.promptTokens,
+        completionTokens: usage.completionTokens,
+        totalTokens: usage.totalTokens,
+        cacheHit: false,
+        durationMs: dur,
+      }).catch(() => {});
+      if (cacheKey && response.content) {
+        writePromptCache(
+          cacheKey,
+          taskType,
+          response.model || 'unknown',
+          request.messages,
+          response.content,
+          usage.promptTokens,
+          usage.completionTokens
+        ).catch(() => {});
+      }
+    } catch (e) {
+      console.warn('[Instrumentation] _afterCall failed:', e);
+    }
   }
 
   /**

@@ -2,7 +2,6 @@
 generator client {
     provider = "prisma-client-js"
     binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
-    output = "/home/ubuntu/ai_author/app/node_modules/.prisma/client"
 }
 
 datasource db {
@@ -25,6 +24,62 @@ model User {
   accounts      Account[]
   sessions      Session[]
   bookSessions  BookSession[]
+  folders       Folder[]
+  usageLogs     LLMUsageLog[]
+}
+
+model Folder {
+  id        String        @id @default(cuid())
+  name      String
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentId  String?
+  parent    Folder?       @relation("FolderTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Folder[]      @relation("FolderTree")
+  sessions  BookSession[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  @@index([userId])
+  @@index([parentId])
+}
+
+model LLMUsageLog {
+  id               String   @id @default(cuid())
+  userId           String?
+  user             User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  sessionId        String?
+  taskType         String
+  provider         String
+  model            String
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  totalTokens      Int      @default(0)
+  estimatedCostUsd Float    @default(0)
+  cacheHit         Boolean  @default(false)
+  durationMs       Int?
+  createdAt        DateTime @default(now())
+  @@index([createdAt])
+  @@index([userId])
+  @@index([sessionId])
+  @@index([taskType])
+}
+
+model PromptCache {
+  id               String    @id @default(cuid())
+  cacheKey         String    @unique
+  taskType         String
+  model            String
+  systemPrompt     String    @db.Text
+  userPrompt       String    @db.Text
+  response         String    @db.Text
+  promptTokens     Int       @default(0)
+  completionTokens Int       @default(0)
+  hitCount         Int       @default(0)
+  lastHitAt        DateTime?
+  createdAt        DateTime  @default(now())
+  expiresAt        DateTime?
+  @@index([taskType, model])
+  @@index([hitCount])
 }
 
 model Account {
@@ -112,6 +167,11 @@ model BookSession {
   // User relationship
   userId            String?
   user              User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  // Folder organization
+  folderId          String?
+  folder            Folder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  name              String?  // User-friendly book name/title for saved books
   
   // Genre Selection
   selectedGenre     String?

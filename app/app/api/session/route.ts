@@ -1,15 +1,25 @@
-
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/db';
 
-const prisma = new PrismaClient();
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
+    const authSession = await getServerSession(authOptions);
+    const userId = (authSession?.user as any)?.id || null;
+    let body: any = {};
+    try { body = await request.json(); } catch {}
+    const { name, folderId } = body || {};
+
     const session = await prisma.bookSession.create({
       data: {
         currentStep: 1,
         completedSteps: [],
+        userId,
+        name: name || null,
+        folderId: folderId || null,
       },
     });
 
@@ -55,15 +65,12 @@ export async function PUT(request: NextRequest) {
 
     // Fields that exist in client types but not in database schema
     const clientOnlyFields = ['selectedSynopsisId', 'selectedTitleId', 'chapters', 'characters', 'characterRecommendations', 'chapterRecommendations'];
-    
+
     // Filter out undefined/null values and client-only fields
     const cleanedData = Object.fromEntries(
       Object.entries(updateData).filter(([key, value]) => {
-        // Skip undefined, null values
-        if (value === undefined || value === null) return false;
-        // Skip client-only fields
+        if (value === undefined) return false;
         if (clientOnlyFields.includes(key)) return false;
-        // Keep primitives and JSON-serializable values
         return true;
       })
     );

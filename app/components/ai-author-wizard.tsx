@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSession, signOut } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { BookSession, WizardStep, Synopsis, BookTitle, Chapter, BookMetrics, Character, CharacterRecommendations, CharacterRole, ChapterRecommendations } from '@/lib/types';
 import { ProgressBar } from './wizard/progress-bar';
@@ -17,7 +17,8 @@ import { AnimatedProgress, PROGRESS_CONFIGS, ProgressStep } from './ui/animated-
 import { calculateReadTime, generateHumanizationScore, generateSuccessProbability, simulateAnalysisDelay, downloadAsFile, downloadBookAsPDF, downloadBookAsDocx, downloadBookAsText } from '@/lib/utils';
 import { BOOK_GENRES } from '@/lib/genres';
 import { Button } from './ui/button';
-import { BookOpen, LogOut, Shield, User, RotateCcw } from 'lucide-react';
+import { BookOpen, LogOut, Shield, User, RotateCcw, FolderOpen, Save } from 'lucide-react';
+import { SaveBookDialog } from '@/components/wizard/save-book-dialog';
 
 const WIZARD_STEPS: WizardStep[] = [
   { id: 1, title: 'Genre', description: 'Select your book genre', completed: false },
@@ -35,6 +36,7 @@ export default function AIAuthorWizard() {
   
   const [sessionId, setSessionId] = useState<string>('');
   const [currentStep, setCurrentStep] = useState(1);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [session, setSession] = useState<Partial<BookSession>>({});
   const [isLoading, setIsLoading] = useState<{ [key: string]: boolean }>({});
   
@@ -100,10 +102,52 @@ export default function AIAuthorWizard() {
     setProgressConfig(prev => ({ ...prev, isVisible: false }));
   }, []);
 
-  // Initialize session
+  const searchParams = useSearchParams();
+
+  // Initialize session — load existing if ?sessionId= in URL, else create new
   useEffect(() => {
+    const existingId = searchParams?.get('sessionId') || null;
     const initSession = async () => {
       try {
+        if (existingId) {
+          const res = await fetch(`/api/session?sessionId=${existingId}`);
+          if (res.ok) {
+            const data = await res.json();
+            setSessionId(data.id);
+            // Restore wizard state
+            const restored: any = {
+              id: data.id,
+              name: data.name,
+              folderId: data.folderId,
+              selectedGenre: data.selectedGenre,
+              genreAnalysis: data.genreAnalysis,
+              authorAnalysis: data.authorAnalysis,
+              customTopic: data.customTopic,
+              selectedSynopsis: data.selectedSynopsis,
+              synopses: data.synopses,
+              selectedTitle: data.selectedTitle,
+              customTitle: data.customTitle,
+              generatedTitles: data.generatedTitles,
+              plannedChapters: data.plannedChapters,
+              wordsPerChapter: data.wordsPerChapter,
+              forward: data.forward,
+              forwardWordCount: data.forwardWordCount,
+              chapters: data.chapters || [],
+              coverPrompts: data.coverPrompts,
+              salesCopy: data.salesCopy,
+              backCoverCopy: data.backCoverCopy,
+              totalWordCount: data.totalWordCount,
+              estimatedReadTime: data.estimatedReadTime,
+              humanizationScore: data.humanizationScore,
+              successProbability: data.successProbability,
+              currentStep: data.currentStep,
+              completedSteps: data.completedSteps,
+            };
+            setSession(restored);
+            setCurrentStep(data.currentStep || 1);
+            return;
+          }
+        }
         const response = await fetch('/api/session', { method: 'POST' });
         const data = await response.json();
         setSessionId(data.sessionId);
@@ -112,6 +156,7 @@ export default function AIAuthorWizard() {
       }
     };
     initSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const updateSession = async (updates: Partial<BookSession>) => {
@@ -1020,6 +1065,22 @@ export default function AIAuthorWizard() {
                 </Button>
               </Link>
             )}
+            <Link href="/library">
+              <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
+                <FolderOpen className="h-4 w-4 mr-2" />
+                Library
+              </Button>
+            </Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSaveDialogOpen(true)}
+              disabled={!sessionId}
+              className="text-gray-400 hover:text-white"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              Save
+            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -1043,7 +1104,18 @@ export default function AIAuthorWizard() {
       </header>
 
       <div className="container mx-auto px-4 py-8">
-        <ProgressBar steps={WIZARD_STEPS} currentStep={currentStep} />
+        <ProgressBar
+          steps={WIZARD_STEPS}
+          currentStep={currentStep}
+          onStepClick={(step) => {
+            if (step >= 1 && step <= WIZARD_STEPS.length && step !== currentStep) {
+              setCurrentStep(step);
+              if (sessionId) {
+                updateSession({ currentStep: step });
+              }
+            }
+          }}
+        />
         
         <div className="max-w-7xl mx-auto">
           {currentStep === 1 && (
@@ -1152,6 +1224,17 @@ export default function AIAuthorWizard() {
           </div>
         </div>
       </footer>
+
+      <SaveBookDialog
+        open={saveDialogOpen}
+        onOpenChange={setSaveDialogOpen}
+        sessionId={sessionId}
+        currentName={session.name || session.selectedTitle || session.customTitle || ''}
+        currentFolderId={(session as any).folderId || null}
+        onSaved={(name, folderId) => {
+          setSession(prev => ({ ...prev, name, folderId } as any));
+        }}
+      />
     </div>
   );
 }

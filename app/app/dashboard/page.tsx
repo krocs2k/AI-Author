@@ -2,7 +2,7 @@
 
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import AIAuthorWizard from '@/components/ai-author-wizard';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
@@ -28,5 +28,9 @@ export default function DashboardPage() {
     return null;
   }
 
-  return <AIAuthorWizard />;
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center"><LoadingSpinner /></div>}>
+      <AIAuthorWizard />
+    </Suspense>
+  );
 }
