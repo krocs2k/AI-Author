@@ -165,7 +165,7 @@ Return ONLY valid JSON with these exact keys (all values should be objects or ar
 
     const userPrompt = `Series: "${series.name}"\nGenre: ${series.genre || 'Unknown'}\nDescription: ${series.description || 'N/A'}\n\nExisting Story Bible:\n${existingBible}\n\nBook Data to Process:\n${bookSummaries.slice(0, 12000)}\n\n${series.storyBible ? 'MERGE the new book data into the existing story bible. Preserve all existing entries and add/update based on the new book content. Update character arcs, add new characters, advance plot arcs, and suggest what could happen next.' : 'Generate a complete story bible from this book data. Be thorough but concise.'}`;
 
-    const model = config.selectedModel || 'gpt-5.1';
+    const model = config.writingModel || config.ideaModel || 'gpt-5.1';
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 55000);
