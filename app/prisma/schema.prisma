@@ -2,6 +2,7 @@
 generator client {
     provider = "prisma-client-js"
     binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+    output = "/home/ubuntu/ai_author/app/node_modules/.prisma/client"
 }
 
 datasource db {
@@ -26,6 +27,7 @@ model User {
   bookSessions  BookSession[]
   folders       Folder[]
   usageLogs     LLMUsageLog[]
+  series        Series[]
 }
 
 model Folder {
@@ -41,6 +43,51 @@ model Folder {
   updatedAt DateTime      @updatedAt
   @@index([userId])
   @@index([parentId])
+}
+
+model Series {
+  id          String        @id @default(cuid())
+  name        String
+  description String?       @db.Text
+  genre       String?
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  books       BookSession[]
+  storyBible  StoryBible?
+  bookOrder   Json?         // Array of bookSession IDs in reading order
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  @@index([userId])
+}
+
+model StoryBible {
+  id                  String    @id @default(cuid())
+  seriesId            String    @unique
+  series              Series    @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+
+  // Core narrative elements
+  seriesOverview      Json?     // {title, genre, themes, tone, targetAudience, logline}
+  characters          Json?     // [{name, role, physicalDesc, personality, arc, visualRef, backstory, relationships}]
+  worldBuilding       Json?     // {settings, locations, rules, mythology, technology, culture}
+  plotArcs            Json?     // {overarching, perBook: [{bookId, arc, resolution}], unresolvedThreads}
+  timeline            Json?     // [{bookId, event, chapter, chronologicalOrder}]
+  relationships       Json?     // [{char1, char2, type, evolution: [{bookId, state}]}]
+  themes              Json?     // {recurring, symbols, motifs}
+  voiceAndStyle       Json?     // {pov, narrativeVoice, toneGuidelines, prohibitions}
+
+  // Visual continuity
+  visualGuide         Json?     // {characterAppearances, colorPalette, artStyle}
+  coverImages         Json?     // [{bookId, imageUrl, prompt, style, model}]
+
+  // Parallel storylines
+  storylines          Json?     // [{name, status, books, description, divergePoint, convergePoint}]
+
+  // Generation context
+  continuityNotes     Json?     // Contradictions to avoid, established facts
+  nextBookSuggestions Json?     // Auto-generated ideas for next book
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 }
 
 model LLMUsageLog {
@@ -146,6 +193,7 @@ model LLMConfig {
   // Model selections
   ideaModel           String?  // Model ID for idea generation (synopsis, titles, genre analysis)
   writingModel        String?  // Model ID for story writing (content, chapters)
+  imageModel          String?  // Model ID for image generation (cover art)
   
   // Cached available models (JSON arrays)
   abacusModels        Json?    // Cached list of Abacus.AI models
@@ -172,6 +220,16 @@ model BookSession {
   folderId          String?
   folder            Folder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
   name              String?  // User-friendly book name/title for saved books
+
+  // Series / Episodic
+  seriesId          String?
+  series            Series?  @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  seriesOrder       Int?     // Position in the series (1-based)
+
+  // Cover Art
+  coverImageUrl     String?  @db.Text
+  coverImagePrompt  String?  @db.Text
+  coverImageModel   String?
   
   // Genre Selection
   selectedGenre     String?

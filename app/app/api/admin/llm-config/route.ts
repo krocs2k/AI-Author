@@ -200,13 +200,14 @@ export async function POST(request: NextRequest) {
 
     // Action: Set active provider & models
     if (action === 'saveSelection') {
-      const { activeProvider, ideaModel, writingModel } = body;
+      const { activeProvider, ideaModel, writingModel, imageModel } = body;
       config = await prisma.lLMConfig.update({
         where: { id: config.id },
         data: {
           activeProvider: activeProvider || config.activeProvider,
           ideaModel: ideaModel !== undefined ? ideaModel : config.ideaModel,
           writingModel: writingModel !== undefined ? writingModel : config.writingModel,
+          imageModel: imageModel !== undefined ? imageModel : (config as any).imageModel,
         },
       });
       invalidateLLMConfigCache();

@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     genre = body.genre;
-    const { customTopic, genreAnalysis } = body;
+    const { customTopic, genreAnalysis, seriesContext } = body;
 
     const topicContext = customTopic ? `with a focus on: ${customTopic}` : '';
     const analysisContext = genreAnalysis ? `
@@ -17,13 +17,39 @@ Based on genre analysis:
 - Typical structure: ${genreAnalysis.topBooks?.[0]?.structure || 'Three-act structure'}
 ` : '';
 
+    // Build series continuity context if this book is part of a series
+    let seriesContinuityContext = '';
+    if (seriesContext) {
+      const parts: string[] = [];
+      if (seriesContext.plotArcs?.unresolvedThreads?.length) {
+        parts.push(`Unresolved plot threads from previous books: ${seriesContext.plotArcs.unresolvedThreads.join('; ')}`);
+      }
+      if (seriesContext.plotArcs?.overarching) {
+        parts.push(`Overarching series arc: ${seriesContext.plotArcs.overarching}`);
+      }
+      if (seriesContext.nextBookSuggestions?.length) {
+        const suggestions = seriesContext.nextBookSuggestions.map((s: any) => s.concept || s.premise || s.title).filter(Boolean).join('; ');
+        if (suggestions) parts.push(`Story Bible suggestions for next book: ${suggestions}`);
+      }
+      if (seriesContext.characters?.length) {
+        const charNames = seriesContext.characters.map((c: any) => `${c.name} (${c.role})`).join(', ');
+        parts.push(`Recurring characters: ${charNames}`);
+      }
+      if (seriesContext.themes?.recurring?.length) {
+        parts.push(`Recurring themes: ${seriesContext.themes.recurring.join(', ')}`);
+      }
+      if (parts.length > 0) {
+        seriesContinuityContext = `\n\nIMPORTANT - This is a book in an ongoing series. Incorporate the following continuity:\n${parts.join('\n')}\n\nEnsure synopses continue the series narrative and build on existing characters and plot threads.`;
+      }
+    }
+
     // Use RouteLLM for intelligent model selection optimized for creative synopsis generation
     // Reduced from 12 to 8 synopses and from 6000 to 3500 tokens to avoid Cloudflare timeouts
     const response = await routeLLMClient.generateWithSystem(
       `You are a bestselling author and book concept developer. Create compelling book synopses for the ${genre} genre that have high commercial potential.`,
       `Generate 8 unique book synopses for the ${genre} genre ${topicContext}.
 
-${analysisContext}
+${analysisContext}${seriesContinuityContext}
 
 Each synopsis should:
 - Be 150-200 words

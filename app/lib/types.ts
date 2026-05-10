@@ -196,6 +196,13 @@ export interface BookSession {
   estimatedReadTime?: number;
   humanizationScore?: number;
   successProbability?: number;
+  // Cover art fields
+  coverImageUrl?: string;
+  coverImagePrompt?: string;
+  coverImageModel?: string;
+  // Series fields
+  seriesId?: string | null;
+  seriesOrder?: number | null;
   currentStep: number;
   completedSteps?: number[];
   createdAt: Date;

@@ -6,6 +6,7 @@ export interface LLMActiveConfig {
   activeProvider: 'abacus' | 'gemini';
   ideaModel: string | null;
   writingModel: string | null;
+  imageModel: string | null;
   abacusApiKey: string | null;
   geminiApiKey: string | null;
 }
@@ -31,6 +32,7 @@ export async function getActiveLLMConfig(): Promise<LLMActiveConfig> {
         activeProvider: (config.activeProvider as 'abacus' | 'gemini') || 'abacus',
         ideaModel: config.ideaModel,
         writingModel: config.writingModel,
+        imageModel: (config as any).imageModel || null,
         abacusApiKey: config.abacusApiKey,
         geminiApiKey: config.geminiApiKey,
       };
@@ -46,6 +48,7 @@ export async function getActiveLLMConfig(): Promise<LLMActiveConfig> {
     activeProvider: 'abacus',
     ideaModel: null,
     writingModel: null,
+    imageModel: null,
     abacusApiKey: process.env.ABACUSAI_API_KEY || null,
     geminiApiKey: null,
   };

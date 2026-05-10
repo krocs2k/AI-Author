@@ -13,6 +13,7 @@ import { TitlePlanning } from './wizard/title-planning';
 import { CharacterGeneration } from './wizard/character-generation';
 import { ContentCreation } from './wizard/content-creation';
 import { MarketingFinalization } from './wizard/marketing-finalization';
+import { CoverArt } from './wizard/cover-art';
 import { AnimatedProgress, PROGRESS_CONFIGS, ProgressStep } from './ui/animated-progress';
 import { calculateReadTime, generateHumanizationScore, generateSuccessProbability, simulateAnalysisDelay, downloadAsFile, downloadBookAsPDF, downloadBookAsDocx, downloadBookAsText } from '@/lib/utils';
 import { BOOK_GENRES } from '@/lib/genres';
@@ -26,7 +27,8 @@ const WIZARD_STEPS: WizardStep[] = [
   { id: 3, title: 'Title & Plan', description: 'Choose title and structure', completed: false },
   { id: 4, title: 'Characters', description: 'Create your cast', completed: false },
   { id: 5, title: 'Content', description: 'Write your book', completed: false },
-  { id: 6, title: 'Marketing', description: 'Create marketing assets', completed: false },
+  { id: 6, title: 'Cover Art', description: 'Generate book cover', completed: false },
+  { id: 7, title: 'Marketing', description: 'Create marketing assets', completed: false },
 ];
 
 export default function AIAuthorWizard() {
@@ -39,6 +41,7 @@ export default function AIAuthorWizard() {
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [session, setSession] = useState<Partial<BookSession>>({});
   const [isLoading, setIsLoading] = useState<{ [key: string]: boolean }>({});
+  const [storyBibleContext, setStoryBibleContext] = useState<any>(null);
   
   // Animated progress state
   const [progressConfig, setProgressConfig] = useState<{
@@ -140,11 +143,29 @@ export default function AIAuthorWizard() {
               estimatedReadTime: data.estimatedReadTime,
               humanizationScore: data.humanizationScore,
               successProbability: data.successProbability,
+              coverImageUrl: data.coverImageUrl,
+              coverImagePrompt: data.coverImagePrompt,
+              coverImageModel: data.coverImageModel,
+              seriesId: data.seriesId,
+              seriesOrder: data.seriesOrder,
               currentStep: data.currentStep,
               completedSteps: data.completedSteps,
             };
             setSession(restored);
             setCurrentStep(data.currentStep || 1);
+
+            // Load Story Bible if this book belongs to a series
+            if (data.seriesId) {
+              try {
+                const bibleRes = await fetch(`/api/series/${data.seriesId}/bible`);
+                if (bibleRes.ok) {
+                  const bibleData = await bibleRes.json();
+                  setStoryBibleContext(bibleData.bible);
+                }
+              } catch (e) {
+                console.warn('Failed to load story bible context:', e);
+              }
+            }
             return;
           }
         }
@@ -322,6 +343,12 @@ export default function AIAuthorWizard() {
           genre: session.selectedGenre,
           customTopic: session.customTopic,
           genreAnalysis: session.genreAnalysis,
+          seriesContext: storyBibleContext ? {
+            plotArcs: storyBibleContext.plotArcs,
+            nextBookSuggestions: storyBibleContext.nextBookSuggestions,
+            characters: storyBibleContext.characters?.slice(0, 10),
+            themes: storyBibleContext.themes,
+          } : undefined,
         }),
       });
       
@@ -597,7 +624,11 @@ export default function AIAuthorWizard() {
           genre: bookGenre,
           synopsis: bookSynopsis,
           title: bookTitle,
-          characterConfig: config
+          characterConfig: config,
+          seriesContext: storyBibleContext?.characters ? {
+            existingSeriesCharacters: storyBibleContext.characters,
+            voiceAndStyle: storyBibleContext.voiceAndStyle,
+          } : undefined
         }),
       });
       
@@ -707,6 +738,10 @@ export default function AIAuthorWizard() {
           synopsis: bookSynopsis,
           genre: bookGenre,
           authorAnalysis: session.authorAnalysis,
+          seriesContext: storyBibleContext?.voiceAndStyle ? {
+            voiceAndStyle: storyBibleContext.voiceAndStyle,
+            continuityNotes: storyBibleContext.continuityNotes,
+          } : undefined,
         }),
       });
       
@@ -778,6 +813,10 @@ export default function AIAuthorWizard() {
           genre: bookGenre,
           authorAnalysis: session.authorAnalysis,
           wordsPerChapter: targetWords,
+          seriesContext: storyBibleContext?.voiceAndStyle ? {
+            voiceAndStyle: storyBibleContext.voiceAndStyle,
+            continuityNotes: storyBibleContext.continuityNotes,
+          } : undefined,
         }),
       });
       
@@ -908,7 +947,22 @@ export default function AIAuthorWizard() {
     setCurrentStep(6);
   };
 
-  // Step 6: Marketing
+  // Step 6: Cover Art
+  const handleCoverSaved = (imageUrl: string, prompt: string, model: string) => {
+    setSession(prev => ({
+      ...prev,
+      coverImageUrl: imageUrl,
+      coverImagePrompt: prompt,
+      coverImageModel: model,
+    }));
+  };
+
+  const handleCoverNext = () => {
+    updateSession({ currentStep: 7 });
+    setCurrentStep(7);
+  };
+
+  // Step 7: Marketing
   const handleGenerateCoverPrompts = async () => {
     setIsLoading({ covers: true });
     startProgress('marketingGeneration');
@@ -1198,6 +1252,19 @@ export default function AIAuthorWizard() {
           )}
           
           {currentStep === 6 && (
+            <CoverArt
+              sessionId={sessionId}
+              title={session.selectedTitle || session.customTitle}
+              coverImageUrl={session.coverImageUrl}
+              coverImagePrompt={session.coverImagePrompt}
+              coverImageModel={session.coverImageModel}
+              onCoverSaved={handleCoverSaved}
+              onNext={handleCoverNext}
+              isLoading={isLoading}
+            />
+          )}
+          
+          {currentStep === 7 && (
             <MarketingFinalization
               title={session.selectedTitle || session.customTitle}
               metrics={metrics}

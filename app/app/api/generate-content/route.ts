@@ -277,7 +277,7 @@ export async function POST(request: NextRequest) {
   let wordTarget: number = 0;
   
   try {
-    const { type: requestType, sessionId, chapterNumber, title, synopsis, genre, authorAnalysis, wordsPerChapter } = await request.json();
+    const { type: requestType, sessionId, chapterNumber, title, synopsis, genre, authorAnalysis, wordsPerChapter, seriesContext } = await request.json();
     type = requestType;
 
     // Validate required parameters
@@ -285,6 +285,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ 
         error: 'Missing required parameters: type, title, synopsis, and genre are required' 
       }, { status: 400 });
+    }
+
+    // Build series continuity guidance if available
+    let seriesGuidance = '';
+    if (seriesContext) {
+      const parts: string[] = [];
+      if (seriesContext.voiceAndStyle) {
+        const vs = seriesContext.voiceAndStyle;
+        if (vs.pov) parts.push(`Point of view: ${vs.pov}`);
+        if (vs.narrativeVoice) parts.push(`Narrative voice: ${vs.narrativeVoice}`);
+        if (vs.toneGuidelines?.length) parts.push(`Tone: ${vs.toneGuidelines.join(', ')}`);
+        if (vs.prohibitions?.length) parts.push(`Avoid: ${vs.prohibitions.join(', ')}`);
+      }
+      if (seriesContext.continuityNotes?.length) {
+        parts.push(`Continuity notes: ${seriesContext.continuityNotes.slice(0, 5).join('; ')}`);
+      }
+      if (parts.length > 0) {
+        seriesGuidance = `\n\nSERIES CONTINUITY REQUIREMENTS:\n${parts.join('\n')}\nMaintain consistency with previous books in the series.`;
+      }
     }
 
     console.log(`Starting content generation: ${type} for ${title} (${genre})`);

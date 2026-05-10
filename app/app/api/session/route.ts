@@ -11,7 +11,17 @@ export async function POST(request: NextRequest) {
     const userId = (authSession?.user as any)?.id || null;
     let body: any = {};
     try { body = await request.json(); } catch {}
-    const { name, folderId } = body || {};
+    const { name, folderId, seriesId } = body || {};
+
+    // If adding to a series, auto-compute the next order
+    let seriesOrder: number | null = null;
+    if (seriesId) {
+      const maxOrder = await prisma.bookSession.aggregate({
+        where: { seriesId },
+        _max: { seriesOrder: true },
+      });
+      seriesOrder = (maxOrder._max.seriesOrder || 0) + 1;
+    }
 
     const session = await prisma.bookSession.create({
       data: {
@@ -20,6 +30,8 @@ export async function POST(request: NextRequest) {
         userId,
         name: name || null,
         folderId: folderId || null,
+        seriesId: seriesId || null,
+        seriesOrder,
       },
     });
 

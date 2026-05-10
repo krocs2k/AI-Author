@@ -46,6 +46,7 @@ interface LLMConfigState {
   activeProvider: string;
   ideaModel: string | null;
   writingModel: string | null;
+  imageModel: string | null;
   abacusModels: LLMModel[] | null;
   geminiModels: LLMModel[] | null;
   abacusModelsRefreshedAt: string | null;
@@ -76,6 +77,7 @@ export default function AdminPage() {
     activeProvider: 'abacus',
     ideaModel: null,
     writingModel: null,
+    imageModel: null,
     abacusModels: null,
     geminiModels: null,
     abacusModelsRefreshedAt: null,
@@ -253,7 +255,7 @@ export default function AdminPage() {
     }
   };
 
-  const handleSaveSelection = async (updates: { activeProvider?: string; ideaModel?: string; writingModel?: string }) => {
+  const handleSaveSelection = async (updates: { activeProvider?: string; ideaModel?: string; writingModel?: string; imageModel?: string }) => {
     setLlmSaving(true);
     setLlmMessage('');
     try {
@@ -916,6 +918,47 @@ export default function AdminPage() {
                         {llmConfig.writingModel && (
                           <p className="text-xs text-teal-400">
                             Currently using: {llmConfig.writingModel}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Image Generation Model */}
+                      <div className="space-y-2 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="h-4 w-4 text-pink-400" />
+                          <h4 className="text-white font-medium">Image Generation Model</h4>
+                        </div>
+                        <p className="text-xs text-gray-400">
+                          Used for book cover art generation via Abacus.AI image API
+                        </p>
+                        <select
+                          value={llmConfig.imageModel || ''}
+                          onChange={(e) => handleSaveSelection({ imageModel: e.target.value })}
+                          className="w-full bg-gray-700 border border-gray-600 text-white rounded-md px-3 py-2 text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
+                        >
+                          <option value="">Use default (gpt-5.1)</option>
+                          <optgroup label="Dedicated Image Models">
+                            <option value="flux-2-pro">Flux 2 Pro</option>
+                            <option value="flux-kontext">Flux Kontext</option>
+                            <option value="seedream">Seedream</option>
+                            <option value="ideogram">Ideogram</option>
+                            <option value="recraft">Recraft</option>
+                            <option value="imagen">Imagen (Google)</option>
+                            <option value="nano-banana-pro">Nano Banana Pro</option>
+                            <option value="dall-e">DALL-E</option>
+                          </optgroup>
+                          <optgroup label="Gemini (Image-capable)">
+                            <option value="gemini-3.1-pro">Gemini 3.1 Pro</option>
+                            <option value="gemini-3.1-flash">Gemini 3.1 Flash</option>
+                          </optgroup>
+                          <optgroup label="OpenAI (Image-capable)">
+                            <option value="gpt-5.4">GPT-5.4</option>
+                            <option value="gpt-5.1">GPT-5.1</option>
+                          </optgroup>
+                        </select>
+                        {llmConfig.imageModel && (
+                          <p className="text-xs text-pink-400">
+                            Currently using: {llmConfig.imageModel}
                           </p>
                         )}
                       </div>
