@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
@@ -43,6 +43,42 @@ export function ReportingTab() {
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
+  const [resetClicks, setResetClicks] = useState(0);
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const REQUIRED_CLICKS = 10;
+  const WINDOW_MS = 3000;
+
+  const handleResetClick = useCallback(async () => {
+    const next = resetClicks + 1;
+    setResetClicks(next);
+
+    // Start / restart the 3-second window on first click
+    if (next === 1) {
+      resetTimerRef.current = setTimeout(() => setResetClicks(0), WINDOW_MS);
+    }
+
+    if (next >= REQUIRED_CLICKS) {
+      // Clear the window timer
+      if (resetTimerRef.current) { clearTimeout(resetTimerRef.current); resetTimerRef.current = null; }
+      setResetClicks(0);
+
+      if (!confirm('This will permanently erase ALL usage logs and prompt-cache entries. Continue?')) return;
+      setResetting(true);
+      try {
+        const res = await fetch('/api/admin/reports/reset', { method: 'POST' });
+        if (!res.ok) throw new Error('Reset failed');
+        const j = await res.json();
+        alert(`Reset complete — deleted ${j.deletedLogs} usage logs and ${j.deletedCache} cache entries.`);
+        fetchReport(period);
+      } catch (e: any) {
+        alert(e.message || 'Reset failed');
+      } finally {
+        setResetting(false);
+      }
+    }
+  }, [resetClicks, period]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchReport = async (p: Period) => {
     setLoading(true);
@@ -90,6 +126,15 @@ export function ReportingTab() {
               ))}
               <Button size="sm" variant="outline" className="border-gray-600 text-gray-200 hover:bg-gray-700" onClick={() => fetchReport(period)}>
                 <RefreshCw className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className={`border-gray-600 text-gray-200 hover:bg-gray-700 transition-colors ${resetClicks > 0 ? 'border-red-500/50 text-red-300' : ''}`}
+                onClick={handleResetClick}
+                disabled={resetting}
+              >
+                {resetting ? 'Resetting…' : resetClicks > 0 ? `Reset (${resetClicks}/${REQUIRED_CLICKS})` : 'Reset'}
               </Button>
             </div>
           </div>
