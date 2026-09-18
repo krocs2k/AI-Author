@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { BookOpen, Mail, Lock, User, Chrome, CheckCircle, Clock } from 'lucide-react';
+import { BookOpen, Mail, Lock, User, Chrome, CheckCircle, Clock, Ban } from 'lucide-react';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -19,6 +19,8 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [googleEnabled, setGoogleEnabled] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
+  const [signupAllowed, setSignupAllowed] = useState(true);
+  const [checkingSignup, setCheckingSignup] = useState(true);
 
   useEffect(() => {
     // Check if Google provider is available
@@ -27,6 +29,12 @@ export default function RegisterPage() {
         setGoogleEnabled(true);
       }
     });
+    // Check whether public sign-up is currently enabled
+    fetch('/api/signup')
+      .then((res) => res.json())
+      .then((data) => setSignupAllowed(data?.enabled !== false))
+      .catch(() => setSignupAllowed(true))
+      .finally(() => setCheckingSignup(false));
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -87,7 +95,26 @@ export default function RegisterPage() {
           <CardDescription className="text-gray-400">Start your journey as an AI Author</CardDescription>
         </CardHeader>
         <CardContent>
-          {registrationSuccess ? (
+          {!checkingSignup && !signupAllowed ? (
+            <div className="text-center space-y-4">
+              <div className="flex justify-center">
+                <div className="p-4 bg-gray-700/40 rounded-full">
+                  <Ban className="h-12 w-12 text-gray-400" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-semibold text-white">Registration Closed</h3>
+                <p className="text-sm text-gray-400">
+                  New account sign-up is currently disabled. Please check back later or contact the administrator.
+                </p>
+              </div>
+              <Link href="/login">
+                <Button className="w-full bg-teal-500 hover:bg-teal-600 text-white mt-4">
+                  Return to Login
+                </Button>
+              </Link>
+            </div>
+          ) : registrationSuccess ? (
             <div className="text-center space-y-4">
               <div className="flex justify-center">
                 <div className="p-4 bg-green-500/20 rounded-full">
@@ -184,7 +211,7 @@ export default function RegisterPage() {
           </form>
           )}
 
-          {!registrationSuccess && googleEnabled && (
+          {signupAllowed && !registrationSuccess && googleEnabled && (
             <>
               <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center">
@@ -206,7 +233,7 @@ export default function RegisterPage() {
             </>
           )}
         </CardContent>
-        {!registrationSuccess && (
+        {signupAllowed && !registrationSuccess && (
         <CardFooter className="flex justify-center">
           <p className="text-sm text-gray-400">
             Already have an account?{' '}
