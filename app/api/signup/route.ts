@@ -2,8 +2,33 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 
+export const dynamic = 'force-dynamic';
+
+// GET - Public check of whether sign-up is currently enabled
+export async function GET() {
+  try {
+    const config = await prisma.lLMConfig.findFirst();
+    // Default to enabled when no config row exists yet
+    const enabled = config ? config.signupEnabled : true;
+    return NextResponse.json({ enabled });
+  } catch (error) {
+    console.error('Error checking signup status:', error);
+    // Fail open so a transient DB issue doesn't lock out registration
+    return NextResponse.json({ enabled: true });
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
+    // Block sign-up when disabled by the administrator
+    const config = await prisma.lLMConfig.findFirst();
+    if (config && !config.signupEnabled) {
+      return NextResponse.json(
+        { error: 'New account registration is currently disabled.' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { email, password, name } = body;
 
