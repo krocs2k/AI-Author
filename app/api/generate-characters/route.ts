@@ -1,6 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { routeLLMClient } from '@/lib/routellm';
+import { withNovelSystemBible } from '@/lib/routellm/config-loader';
 import { Character, CharacterRecommendations, CharacterRole } from '@/lib/types';
 
 // Genre-based character count recommendations based on analysis of bestselling books
@@ -427,7 +428,7 @@ async function generateSingleCharacter(
     foil: 'a character who contrasts with the protagonist to highlight their traits'
   };
   
-  const systemPrompt = `You are an expert character designer for ${genre} novels. Create compelling, three-dimensional characters that readers will remember. Your characters should feel authentic and serve their narrative purpose while avoiding clichés.`;
+  const systemPrompt = await withNovelSystemBible(`You are an expert character designer for ${genre} novels. Create compelling, three-dimensional characters that readers will remember. Your characters should feel authentic and serve their narrative purpose while avoiding clichés.`);
   
   const prompt = `Create a detailed character for a ${genre} book titled "${title}".
 
