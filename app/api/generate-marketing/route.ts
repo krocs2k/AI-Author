@@ -1,6 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { routeLLMClient } from '@/lib/routellm';
+import { withNovelSystemBible } from '@/lib/routellm/config-loader';
 
 export async function POST(request: NextRequest) {
   let type = '';
@@ -66,11 +67,12 @@ Format as JSON with "copy" and "imagePrompt" keys.`;
 
     // Use RouteLLM for intelligent model selection optimized for marketing content
     // Reduced token limits for faster response times
+    const marketingSystemPrompt = await withNovelSystemBible(`You are a book marketing expert specializing in ${genre} fiction. Create compelling marketing materials that drive sales.`);
     const response = await routeLLMClient.chatCompletion({
       messages: [
         {
           role: 'system',
-          content: `You are a book marketing expert specializing in ${genre} fiction. Create compelling marketing materials that drive sales.`
+          content: marketingSystemPrompt
         },
         {
           role: 'user',
