@@ -1,7 +1,6 @@
-
 generator client {
     provider = "prisma-client-js"
-    binaryTargets = ["native", "linux-musl-openssl-3.0.x", "linux-musl-arm64-openssl-3.0.x"]
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
 }
 
 datasource db {
@@ -24,6 +23,108 @@ model User {
   accounts      Account[]
   sessions      Session[]
   bookSessions  BookSession[]
+  folders       Folder[]
+  usageLogs     LLMUsageLog[]
+  series        Series[]
+}
+
+model Folder {
+  id        String        @id @default(cuid())
+  name      String
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentId  String?
+  parent    Folder?       @relation("FolderTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Folder[]      @relation("FolderTree")
+  sessions  BookSession[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  @@index([userId])
+  @@index([parentId])
+}
+
+model Series {
+  id          String        @id @default(cuid())
+  name        String
+  description String?       @db.Text
+  genre       String?
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  books       BookSession[]
+  storyBible  StoryBible?
+  bookOrder   Json?         // Array of bookSession IDs in reading order
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  @@index([userId])
+}
+
+model StoryBible {
+  id                  String    @id @default(cuid())
+  seriesId            String    @unique
+  series              Series    @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+
+  // Core narrative elements
+  seriesOverview      Json?     // {title, genre, themes, tone, targetAudience, logline}
+  characters          Json?     // [{name, role, physicalDesc, personality, arc, visualRef, backstory, relationships}]
+  worldBuilding       Json?     // {settings, locations, rules, mythology, technology, culture}
+  plotArcs            Json?     // {overarching, perBook: [{bookId, arc, resolution}], unresolvedThreads}
+  timeline            Json?     // [{bookId, event, chapter, chronologicalOrder}]
+  relationships       Json?     // [{char1, char2, type, evolution: [{bookId, state}]}]
+  themes              Json?     // {recurring, symbols, motifs}
+  voiceAndStyle       Json?     // {pov, narrativeVoice, toneGuidelines, prohibitions}
+
+  // Visual continuity
+  visualGuide         Json?     // {characterAppearances, colorPalette, artStyle}
+  coverImages         Json?     // [{bookId, imageUrl, prompt, style, model}]
+
+  // Parallel storylines
+  storylines          Json?     // [{name, status, books, description, divergePoint, convergePoint}]
+
+  // Generation context
+  continuityNotes     Json?     // Contradictions to avoid, established facts
+  nextBookSuggestions Json?     // Auto-generated ideas for next book
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
+model LLMUsageLog {
+  id               String   @id @default(cuid())
+  userId           String?
+  user             User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  sessionId        String?
+  taskType         String
+  provider         String
+  model            String
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  totalTokens      Int      @default(0)
+  estimatedCostUsd Float    @default(0)
+  cacheHit         Boolean  @default(false)
+  durationMs       Int?
+  createdAt        DateTime @default(now())
+  @@index([createdAt])
+  @@index([userId])
+  @@index([sessionId])
+  @@index([taskType])
+}
+
+model PromptCache {
+  id               String    @id @default(cuid())
+  cacheKey         String    @unique
+  taskType         String
+  model            String
+  systemPrompt     String    @db.Text
+  userPrompt       String    @db.Text
+  response         String    @db.Text
+  promptTokens     Int       @default(0)
+  completionTokens Int       @default(0)
+  hitCount         Int       @default(0)
+  lastHitAt        DateTime?
+  createdAt        DateTime  @default(now())
+  expiresAt        DateTime?
+  @@index([taskType, model])
+  @@index([hitCount])
 }
 
 model Account {
@@ -76,6 +177,47 @@ enum UserRole {
   ADMIN
 }
 
+// LLM API Configuration
+model LLMConfig {
+  id                  String   @id @default(cuid())
+  
+  // API Keys (encrypted at rest by DB)
+  abacusApiKey        String?
+  geminiApiKey        String?
+  openaiApiKey        String?
+  
+  // Active provider selection
+  activeProvider      String   @default("abacus") // "abacus", "openai", or "gemini"
+  
+  // Model selections
+  ideaModel           String?  // Model ID for idea generation (synopsis, titles, genre analysis)
+  writingModel        String?  // Model ID for story writing (content, chapters)
+  imageModel          String?  // Model ID for image generation (cover art)
+  
+  // Cached available models (JSON arrays)
+  abacusModels        Json?    // Cached list of Abacus.AI models
+  geminiModels        Json?    // Cached list of Gemini models
+  openaiModels        Json?    // Cached list of OpenAI models
+  
+  // Last refresh timestamps
+  abacusModelsRefreshedAt DateTime?
+  geminiModelsRefreshedAt  DateTime?
+  openaiModelsRefreshedAt  DateTime?
+  
+  // Statistics reset tracking
+  statsResetAt        DateTime? // When stats were last cleared — reports filter from this date
+
+  // Creative Novel System Bible — admin-provided core controller for all novel writing
+  novelSystemBible    String?  @db.Text
+  novelSystemBibleUpdatedAt DateTime?
+
+  // Whether new user sign-up is enabled
+  signupEnabled       Boolean  @default(true)
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
 model BookSession {
   id                String   @id @default(cuid())
   createdAt         DateTime @default(now())
@@ -85,8 +227,24 @@ model BookSession {
   userId            String?
   user              User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   
+  // Folder organization
+  folderId          String?
+  folder            Folder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  name              String?  // User-friendly book name/title for saved books
+
+  // Series / Episodic
+  seriesId          String?
+  series            Series?  @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  seriesOrder       Int?     // Position in the series (1-based)
+
+  // Cover Art
+  coverImageUrl     String?  @db.Text
+  coverImagePrompt  String?  @db.Text
+  coverImageModel   String?
+  
   // Genre Selection
   selectedGenre     String?
+  selectedGenres    Json?    // Array of selected genre ids (hybrid genre support)
   genreAnalysis     Json?    // MojoSauce analysis
   authorAnalysis    Json?    // SecretSauce analysis
   
