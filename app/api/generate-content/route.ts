@@ -1,6 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { routeLLMClient } from '@/lib/routellm';
+import { withNovelSystemBible } from '@/lib/routellm/config-loader';
 
 // Enhanced word count calculation with better accuracy
 function calculateWordCount(text: string): number {
@@ -116,7 +117,7 @@ async function generateChapterInStages(
   // For shorter chapters (self-help, business), use single-stage generation
   if (targetWords < MIN_WORDS_FOR_STAGING) {
     console.log(`Short chapter: Using single-stage generation for ${targetWords} words`);
-    const systemPrompt = `You are a bestselling ${genre} author known for clear, engaging writing. Write compelling content that delivers value to readers.`;
+    const systemPrompt = await withNovelSystemBible(`You are a bestselling ${genre} author known for clear, engaging writing. Write compelling content that delivers value to readers.`);
     const prompt = `Write Chapter ${chapterNumber} for a ${genre} book titled "${title}".
 
 STORY/BOOK SYNOPSIS: ${synopsis}
@@ -150,7 +151,7 @@ Write the complete chapter now:`;
   
   console.log(`Multi-stage generation: ${numStages} stages, ~${wordsPerStage} words each, total target: ${targetWords}`);
   
-  const systemPrompt = `You are a bestselling ${genre} author known for engaging, immersive storytelling. Write compelling narrative that flows naturally and keeps readers hooked.`;
+  const systemPrompt = await withNovelSystemBible(`You are a bestselling ${genre} author known for engaging, immersive storytelling. Write compelling narrative that flows naturally and keeps readers hooked.`);
   
   let fullContent = '';
   let lastModel = '';
@@ -277,7 +278,7 @@ export async function POST(request: NextRequest) {
   let wordTarget: number = 0;
   
   try {
-    const { type: requestType, sessionId, chapterNumber, title, synopsis, genre, authorAnalysis, wordsPerChapter } = await request.json();
+    const { type: requestType, sessionId, chapterNumber, title, synopsis, genre, authorAnalysis, wordsPerChapter, seriesContext } = await request.json();
     type = requestType;
 
     // Validate required parameters
@@ -285,6 +286,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ 
         error: 'Missing required parameters: type, title, synopsis, and genre are required' 
       }, { status: 400 });
+    }
+
+    // Build series continuity guidance if available
+    let seriesGuidance = '';
+    if (seriesContext) {
+      const parts: string[] = [];
+      if (seriesContext.voiceAndStyle) {
+        const vs = seriesContext.voiceAndStyle;
+        if (vs.pov) parts.push(`Point of view: ${vs.pov}`);
+        if (vs.narrativeVoice) parts.push(`Narrative voice: ${vs.narrativeVoice}`);
+        if (vs.toneGuidelines?.length) parts.push(`Tone: ${vs.toneGuidelines.join(', ')}`);
+        if (vs.prohibitions?.length) parts.push(`Avoid: ${vs.prohibitions.join(', ')}`);
+      }
+      if (seriesContext.continuityNotes?.length) {
+        parts.push(`Continuity notes: ${seriesContext.continuityNotes.slice(0, 5).join('; ')}`);
+      }
+      if (parts.length > 0) {
+        seriesGuidance = `\n\nSERIES CONTINUITY REQUIREMENTS:\n${parts.join('\n')}\nMaintain consistency with previous books in the series.`;
+      }
     }
 
     console.log(`Starting content generation: ${type} for ${title} (${genre})`);
@@ -307,7 +327,7 @@ STORY CONTEXT: ${synopsis}
 
 Write naturally and engagingly while staying close to the target word count.`;
 
-      const systemPrompt = `You are a bestselling author in the ${genre} genre. Write engaging, human-like content that feels authentic and compelling.`;
+      const systemPrompt = await withNovelSystemBible(`You are a bestselling author in the ${genre} genre. Write engaging, human-like content that feels authentic and compelling.`);
       const result = await generateStageContent(systemPrompt, prompt);
       
       if (result.timedOut) {
