@@ -1,6 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { routeLLMClient } from '@/lib/routellm';
+import { withNovelSystemBible } from '@/lib/routellm/config-loader';
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,11 +9,12 @@ export async function POST(request: NextRequest) {
 
     // Use RouteLLM for intelligent model selection optimized for creative title generation
     // Reduced from 3000 to 2000 tokens for faster response times
+    const titleSystemPrompt = await withNovelSystemBible(`You are a book marketing expert specializing in creating compelling, marketable book titles for the ${genre} genre.`);
     const response = await routeLLMClient.chatCompletion({
       messages: [
         {
           role: 'system',
-          content: `You are a book marketing expert specializing in creating compelling, marketable book titles for the ${genre} genre.`
+          content: titleSystemPrompt
         },
         {
           role: 'user',
