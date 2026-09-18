@@ -3,29 +3,34 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSession, signOut } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { BookSession, WizardStep, Synopsis, BookTitle, Chapter, BookMetrics, Character, CharacterRecommendations, CharacterRole, ChapterRecommendations } from '@/lib/types';
 import { ProgressBar } from './wizard/progress-bar';
 import { GenreSelection } from './wizard/genre-selection';
+import { TropeSelection, Trope } from './wizard/trope-selection';
 import { SynopsisGeneration } from './wizard/synopsis-generation';
 import { TitlePlanning } from './wizard/title-planning';
 import { CharacterGeneration } from './wizard/character-generation';
 import { ContentCreation } from './wizard/content-creation';
 import { MarketingFinalization } from './wizard/marketing-finalization';
+import { CoverArt } from './wizard/cover-art';
 import { AnimatedProgress, PROGRESS_CONFIGS, ProgressStep } from './ui/animated-progress';
 import { calculateReadTime, generateHumanizationScore, generateSuccessProbability, simulateAnalysisDelay, downloadAsFile, downloadBookAsPDF, downloadBookAsDocx, downloadBookAsText } from '@/lib/utils';
 import { BOOK_GENRES } from '@/lib/genres';
 import { Button } from './ui/button';
-import { BookOpen, LogOut, Shield, User, RotateCcw } from 'lucide-react';
+import { BookOpen, LogOut, Shield, User, RotateCcw, FolderOpen, Save } from 'lucide-react';
+import { SaveBookDialog } from '@/components/wizard/save-book-dialog';
 
 const WIZARD_STEPS: WizardStep[] = [
   { id: 1, title: 'Genre', description: 'Select your book genre', completed: false },
-  { id: 2, title: 'Synopsis', description: 'Generate book concepts', completed: false },
-  { id: 3, title: 'Title & Plan', description: 'Choose title and structure', completed: false },
-  { id: 4, title: 'Characters', description: 'Create your cast', completed: false },
-  { id: 5, title: 'Content', description: 'Write your book', completed: false },
-  { id: 6, title: 'Marketing', description: 'Create marketing assets', completed: false },
+  { id: 2, title: 'Tropes', description: 'Choose a story trope', completed: false },
+  { id: 3, title: 'Synopsis', description: 'Generate book concepts', completed: false },
+  { id: 4, title: 'Title & Plan', description: 'Choose title and structure', completed: false },
+  { id: 5, title: 'Characters', description: 'Create your cast', completed: false },
+  { id: 6, title: 'Content', description: 'Write your book', completed: false },
+  { id: 7, title: 'Cover Art', description: 'Generate book cover', completed: false },
+  { id: 8, title: 'Marketing', description: 'Create marketing assets', completed: false },
 ];
 
 export default function AIAuthorWizard() {
@@ -35,8 +40,10 @@ export default function AIAuthorWizard() {
   
   const [sessionId, setSessionId] = useState<string>('');
   const [currentStep, setCurrentStep] = useState(1);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [session, setSession] = useState<Partial<BookSession>>({});
   const [isLoading, setIsLoading] = useState<{ [key: string]: boolean }>({});
+  const [storyBibleContext, setStoryBibleContext] = useState<any>(null);
   
   // Animated progress state
   const [progressConfig, setProgressConfig] = useState<{
@@ -100,10 +107,73 @@ export default function AIAuthorWizard() {
     setProgressConfig(prev => ({ ...prev, isVisible: false }));
   }, []);
 
-  // Initialize session
+  const searchParams = useSearchParams();
+
+  // Initialize session — load existing if ?sessionId= in URL, else create new
   useEffect(() => {
+    const existingId = searchParams?.get('sessionId') || null;
     const initSession = async () => {
       try {
+        if (existingId) {
+          const res = await fetch(`/api/session?sessionId=${existingId}`);
+          if (res.ok) {
+            const data = await res.json();
+            setSessionId(data.id);
+            // Restore wizard state
+            const restored: any = {
+              id: data.id,
+              name: data.name,
+              folderId: data.folderId,
+              selectedGenre: data.selectedGenre,
+              selectedGenres: data.selectedGenres,
+              genreAnalysis: data.genreAnalysis,
+              authorAnalysis: data.authorAnalysis,
+              customTopic: data.customTopic,
+              tropes: data.tropes,
+              selectedTrope: data.selectedTrope,
+              selectedSynopsis: data.selectedSynopsis,
+              synopses: data.synopses,
+              selectedTitle: data.selectedTitle,
+              customTitle: data.customTitle,
+              generatedTitles: data.generatedTitles,
+              plannedChapters: data.plannedChapters,
+              wordsPerChapter: data.wordsPerChapter,
+              forward: data.forward,
+              forwardWordCount: data.forwardWordCount,
+              chapters: data.chapters || [],
+              coverPrompts: data.coverPrompts,
+              salesCopy: data.salesCopy,
+              backCoverCopy: data.backCoverCopy,
+              totalWordCount: data.totalWordCount,
+              estimatedReadTime: data.estimatedReadTime,
+              humanizationScore: data.humanizationScore,
+              successProbability: data.successProbability,
+              coverImageUrl: data.coverImageUrl,
+              coverImagePrompt: data.coverImagePrompt,
+              coverImageModel: data.coverImageModel,
+              seriesId: data.seriesId,
+              seriesOrder: data.seriesOrder,
+              currentStep: data.currentStep,
+              completedSteps: data.completedSteps,
+            };
+            setSession(restored);
+            setCurrentStep(data.currentStep || 1);
+
+            // Load Story Bible if this book belongs to a series
+            if (data.seriesId) {
+              try {
+                const bibleRes = await fetch(`/api/series/${data.seriesId}/bible`);
+                if (bibleRes.ok) {
+                  const bibleData = await bibleRes.json();
+                  setStoryBibleContext(bibleData.bible);
+                }
+              } catch (e) {
+                console.warn('Failed to load story bible context:', e);
+              }
+            }
+            return;
+          }
+        }
         const response = await fetch('/api/session', { method: 'POST' });
         const data = await response.json();
         setSessionId(data.sessionId);
@@ -112,6 +182,7 @@ export default function AIAuthorWizard() {
       }
     };
     initSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const updateSession = async (updates: Partial<BookSession>) => {
@@ -162,8 +233,32 @@ export default function AIAuthorWizard() {
   };
 
   // Step 1: Genre Selection
-  const handleGenreSelect = (genreId: string) => {
-    updateSession({ selectedGenre: genreId });
+  // Build a human-readable (hybrid) genre label from selected genre ids
+  const buildGenreLabel = (ids: string[]) =>
+    ids
+      .map((id) => BOOK_GENRES.find((g) => g.id === id)?.name || id)
+      .filter(Boolean)
+      .join(' + ');
+
+  // Resolve the currently selected genre ids, with backward-compat for
+  // older sessions that only stored a single `selectedGenre` id.
+  const getSelectedGenreIds = (): string[] => {
+    if (session.selectedGenres && session.selectedGenres.length > 0) {
+      return session.selectedGenres;
+    }
+    if (session.selectedGenre && BOOK_GENRES.find((g) => g.id === session.selectedGenre)) {
+      return [session.selectedGenre];
+    }
+    return [];
+  };
+
+  const handleGenreToggle = (genreId: string) => {
+    const current = getSelectedGenreIds();
+    const next = current.includes(genreId)
+      ? current.filter((g) => g !== genreId)
+      : [...current, genreId];
+    const label = buildGenreLabel(next);
+    updateSession({ selectedGenres: next, selectedGenre: label || undefined });
   };
 
   const handleGenreNext = async () => {
@@ -238,7 +333,11 @@ export default function AIAuthorWizard() {
       
       completeProgress();
       setCurrentStep(2);
-      console.log('Genre analysis complete, moving to step 2');
+      
+      // Auto-fetch tropes for the selected genre
+      fetchTropes(session.selectedGenre!);
+      
+      console.log('Genre analysis complete, moving to step 2 (tropes)');
       
     } catch (error) {
       console.error('Genre analysis failed:', error);
@@ -248,7 +347,45 @@ export default function AIAuthorWizard() {
     }
   };
 
-  // Step 2: Synopsis Generation
+  // Step 2: Trope Selection
+  const fetchTropes = async (genreId: string) => {
+    setIsLoading(prev => ({ ...prev, tropes: true }));
+    try {
+      const response = await fetch('/api/generate-tropes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ genre: genreId }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.tropes) {
+          setSession(prev => ({ ...prev, tropes: data.tropes }));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch tropes:', error);
+    } finally {
+      setIsLoading(prev => ({ ...prev, tropes: false }));
+    }
+  };
+
+  const handleTropeSelect = (trope: Trope) => {
+    setSession(prev => ({ ...prev, selectedTrope: trope }));
+    updateSession({ selectedTrope: trope });
+  };
+
+  const handleRegenerateTropes = () => {
+    if (session.selectedGenre) {
+      fetchTropes(session.selectedGenre);
+    }
+  };
+
+  const handleTropeNext = () => {
+    updateSession({ currentStep: 3 });
+    setCurrentStep(3);
+  };
+
+  // Step 3: Synopsis Generation
   const handleTopicChange = (topic: string) => {
     updateSession({ customTopic: topic });
   };
@@ -276,7 +413,17 @@ export default function AIAuthorWizard() {
         body: JSON.stringify({
           genre: session.selectedGenre,
           customTopic: session.customTopic,
+          selectedTrope: session.selectedTrope ? {
+            name: session.selectedTrope.name,
+            description: session.selectedTrope.description,
+          } : undefined,
           genreAnalysis: session.genreAnalysis,
+          seriesContext: storyBibleContext ? {
+            plotArcs: storyBibleContext.plotArcs,
+            nextBookSuggestions: storyBibleContext.nextBookSuggestions,
+            characters: storyBibleContext.characters?.slice(0, 10),
+            themes: storyBibleContext.themes,
+          } : undefined,
         }),
       });
       
@@ -353,11 +500,11 @@ export default function AIAuthorWizard() {
         chapterRecommendations: recommendations,
         plannedChapters: recommendations?.recommendedChapters || session.genreAnalysis?.avgChapters || 20,
         wordsPerChapter: recommendations?.recommendedWordsPerChapter || session.genreAnalysis?.avgWordsPerChapter || 3500,
-        currentStep: 3,
+        currentStep: 4,
       });
       
       completeProgress();
-      setCurrentStep(3);
+      setCurrentStep(4);
     } catch (error) {
       console.error('Title generation failed:', error);
       hideProgress();
@@ -368,8 +515,15 @@ export default function AIAuthorWizard() {
 
   // Generate synopses on step entry
   useEffect(() => {
-    if (currentStep === 2 && !session.synopses && session.selectedGenre) {
+    if (currentStep === 3 && !session.synopses && session.selectedGenre) {
       handleGenerateSynopses();
+    }
+  }, [currentStep, session.selectedGenre]);
+
+  // Fetch tropes on step entry (e.g. when resuming a session)
+  useEffect(() => {
+    if (currentStep === 2 && !session.tropes && session.selectedGenre) {
+      fetchTropes(session.selectedGenre);
     }
   }, [currentStep, session.selectedGenre]);
 
@@ -496,11 +650,11 @@ export default function AIAuthorWizard() {
       setIsLoading(prev => ({ ...prev, recommendations: false }));
     }
     
-    updateSession({ currentStep: 4 });
-    setCurrentStep(4);
+    updateSession({ currentStep: 5 });
+    setCurrentStep(5);
   };
 
-  // Step 4: Character Generation
+  // Step 5: Character Generation
   const handleFetchCharacterRecommendations = async () => {
     setIsLoading(prev => ({ ...prev, recommendations: true }));
     
@@ -552,7 +706,11 @@ export default function AIAuthorWizard() {
           genre: bookGenre,
           synopsis: bookSynopsis,
           title: bookTitle,
-          characterConfig: config
+          characterConfig: config,
+          seriesContext: storyBibleContext?.characters ? {
+            existingSeriesCharacters: storyBibleContext.characters,
+            voiceAndStyle: storyBibleContext.voiceAndStyle,
+          } : undefined
         }),
       });
       
@@ -629,11 +787,11 @@ export default function AIAuthorWizard() {
   };
 
   const handleCharactersNext = () => {
-    updateSession({ currentStep: 5 });
-    setCurrentStep(5);
+    updateSession({ currentStep: 6 });
+    setCurrentStep(6);
   };
 
-  // Step 5: Content Creation
+  // Step 6: Content Creation
   const handleGenerateForward = async () => {
     setIsLoading({ forward: true });
     startProgress('contentGeneration');
@@ -662,6 +820,10 @@ export default function AIAuthorWizard() {
           synopsis: bookSynopsis,
           genre: bookGenre,
           authorAnalysis: session.authorAnalysis,
+          seriesContext: storyBibleContext?.voiceAndStyle ? {
+            voiceAndStyle: storyBibleContext.voiceAndStyle,
+            continuityNotes: storyBibleContext.continuityNotes,
+          } : undefined,
         }),
       });
       
@@ -733,6 +895,10 @@ export default function AIAuthorWizard() {
           genre: bookGenre,
           authorAnalysis: session.authorAnalysis,
           wordsPerChapter: targetWords,
+          seriesContext: storyBibleContext?.voiceAndStyle ? {
+            voiceAndStyle: storyBibleContext.voiceAndStyle,
+            continuityNotes: storyBibleContext.continuityNotes,
+          } : undefined,
         }),
       });
       
@@ -859,11 +1025,26 @@ export default function AIAuthorWizard() {
   };
 
   const handleContentNext = () => {
-    updateSession({ currentStep: 6 });
-    setCurrentStep(6);
+    updateSession({ currentStep: 7 });
+    setCurrentStep(7);
   };
 
-  // Step 6: Marketing
+  // Step 7: Cover Art
+  const handleCoverSaved = (imageUrl: string, prompt: string, model: string) => {
+    setSession(prev => ({
+      ...prev,
+      coverImageUrl: imageUrl,
+      coverImagePrompt: prompt,
+      coverImageModel: model,
+    }));
+  };
+
+  const handleCoverNext = () => {
+    updateSession({ currentStep: 8 });
+    setCurrentStep(8);
+  };
+
+  // Step 8: Marketing
   const handleGenerateCoverPrompts = async () => {
     setIsLoading({ covers: true });
     startProgress('marketingGeneration');
@@ -985,7 +1166,10 @@ export default function AIAuthorWizard() {
 
   const metrics = calculateMetrics(session.chapters, session.forward);
 
-  const selectedGenreName = BOOK_GENRES.find(g => g.id === session.selectedGenre)?.name;
+  const selectedGenreIds = getSelectedGenreIds();
+  const selectedGenreName = selectedGenreIds.length > 0
+    ? buildGenreLabel(selectedGenreIds)
+    : (BOOK_GENRES.find(g => g.id === session.selectedGenre)?.name || session.selectedGenre);
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100">
@@ -1020,6 +1204,22 @@ export default function AIAuthorWizard() {
                 </Button>
               </Link>
             )}
+            <Link href="/library">
+              <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
+                <FolderOpen className="h-4 w-4 mr-2" />
+                Library
+              </Button>
+            </Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSaveDialogOpen(true)}
+              disabled={!sessionId}
+              className="text-gray-400 hover:text-white"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              Save
+            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -1043,19 +1243,42 @@ export default function AIAuthorWizard() {
       </header>
 
       <div className="container mx-auto px-4 py-8">
-        <ProgressBar steps={WIZARD_STEPS} currentStep={currentStep} />
+        <ProgressBar
+          steps={WIZARD_STEPS}
+          currentStep={currentStep}
+          onStepClick={(step) => {
+            if (step >= 1 && step <= WIZARD_STEPS.length && step !== currentStep) {
+              setCurrentStep(step);
+              if (sessionId) {
+                updateSession({ currentStep: step });
+              }
+            }
+          }}
+        />
         
         <div className="max-w-7xl mx-auto">
           {currentStep === 1 && (
             <GenreSelection
-              selectedGenre={session.selectedGenre}
-              onGenreSelect={handleGenreSelect}
+              selectedGenres={selectedGenreIds}
+              onGenreToggle={handleGenreToggle}
               onNext={handleGenreNext}
               isLoading={isLoading.genre}
             />
           )}
           
           {currentStep === 2 && (
+            <TropeSelection
+              genre={selectedGenreName}
+              tropes={session.tropes}
+              selectedTrope={session.selectedTrope}
+              onTropeSelect={handleTropeSelect}
+              onRegenerateTropes={handleRegenerateTropes}
+              onNext={handleTropeNext}
+              isLoading={isLoading.tropes}
+            />
+          )}
+          
+          {currentStep === 3 && (
             <SynopsisGeneration
               genreAnalysis={session.genreAnalysis}
               authorAnalysis={session.authorAnalysis}
@@ -1071,7 +1294,7 @@ export default function AIAuthorWizard() {
             />
           )}
           
-          {currentStep === 3 && (
+          {currentStep === 4 && (
             <TitlePlanning
               titles={session.generatedTitles}
               selectedTitleId={session.selectedTitleId}
@@ -1093,7 +1316,7 @@ export default function AIAuthorWizard() {
             />
           )}
           
-          {currentStep === 4 && (
+          {currentStep === 5 && (
             <CharacterGeneration
               genre={session.selectedGenre}
               title={session.selectedTitle || session.customTitle}
@@ -1108,7 +1331,7 @@ export default function AIAuthorWizard() {
             />
           )}
           
-          {currentStep === 5 && (
+          {currentStep === 6 && (
             <ContentCreation
               title={session.selectedTitle || session.customTitle}
               forward={session.forward}
@@ -1125,7 +1348,20 @@ export default function AIAuthorWizard() {
             />
           )}
           
-          {currentStep === 6 && (
+          {currentStep === 7 && (
+            <CoverArt
+              sessionId={sessionId}
+              title={session.selectedTitle || session.customTitle}
+              coverImageUrl={session.coverImageUrl}
+              coverImagePrompt={session.coverImagePrompt}
+              coverImageModel={session.coverImageModel}
+              onCoverSaved={handleCoverSaved}
+              onNext={handleCoverNext}
+              isLoading={isLoading}
+            />
+          )}
+          
+          {currentStep === 8 && (
             <MarketingFinalization
               title={session.selectedTitle || session.customTitle}
               metrics={metrics}
@@ -1152,6 +1388,17 @@ export default function AIAuthorWizard() {
           </div>
         </div>
       </footer>
+
+      <SaveBookDialog
+        open={saveDialogOpen}
+        onOpenChange={setSaveDialogOpen}
+        sessionId={sessionId}
+        currentName={session.name || session.selectedTitle || session.customTitle || ''}
+        currentFolderId={(session as any).folderId || null}
+        onSaved={(name, folderId) => {
+          setSession(prev => ({ ...prev, name, folderId } as any));
+        }}
+      />
     </div>
   );
 }
