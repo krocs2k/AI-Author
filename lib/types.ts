@@ -165,10 +165,15 @@ export interface WizardStep {
 
 export interface BookSession {
   id: string;
+  name?: string | null;
+  folderId?: string | null;
   selectedGenre?: string;
+  selectedGenres?: string[];
   genreAnalysis?: GenreAnalysis;
   authorAnalysis?: AuthorAnalysis;
   customTopic?: string;
+  tropes?: Array<{ id: string; name: string; description: string; popularity: number }>;
+  selectedTrope?: { id: string; name: string; description: string; popularity: number } | null;
   selectedSynopsis?: string;
   selectedSynopsisId?: string;
   synopses?: Synopsis[];
@@ -194,6 +199,13 @@ export interface BookSession {
   estimatedReadTime?: number;
   humanizationScore?: number;
   successProbability?: number;
+  // Cover art fields
+  coverImageUrl?: string;
+  coverImagePrompt?: string;
+  coverImageModel?: string;
+  // Series fields
+  seriesId?: string | null;
+  seriesOrder?: number | null;
   currentStep: number;
   completedSteps?: number[];
   createdAt: Date;
