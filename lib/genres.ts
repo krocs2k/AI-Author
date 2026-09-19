@@ -1,132 +1,17 @@
-
 import { Genre } from './types';
 
 export const BOOK_GENRES: Genre[] = [
   {
-    id: 'romance',
-    name: 'Romance',
-    description: 'Love stories and relationships',
-    icon: 'Heart'
-  },
-  {
-    id: 'mystery',
-    name: 'Mystery',
-    description: 'Suspenseful crime and detective stories',
-    icon: 'Search'
-  },
-  {
-    id: 'fantasy',
-    name: 'Fantasy',
-    description: 'Magical worlds and supernatural elements',
-    icon: 'Sparkles'
-  },
-  {
-    id: 'thriller',
-    name: 'Thriller',
-    description: 'High-stakes suspense and tension',
-    icon: 'Zap'
-  },
-  {
-    id: 'science-fiction',
-    name: 'Science Fiction',
-    description: 'Futuristic and technological themes',
-    icon: 'Rocket'
-  },
-  {
-    id: 'historical-fiction',
-    name: 'Historical Fiction',
-    description: 'Stories set in the past',
-    icon: 'Clock'
-  },
-  {
-    id: 'contemporary-fiction',
-    name: 'Contemporary Fiction',
-    description: 'Modern-day literary stories',
-    icon: 'Users'
-  },
-  {
-    id: 'young-adult',
-    name: 'Young Adult',
-    description: 'Coming-of-age stories for teens',
-    icon: 'Star'
-  },
-  {
-    id: 'horror',
-    name: 'Horror',
-    description: 'Frightening and supernatural tales',
-    icon: 'Ghost'
+    id: 'action',
+    name: 'Action',
+    description: 'Fast-paced sequences and high-octane conflict',
+    icon: 'Swords'
   },
   {
     id: 'adventure',
     name: 'Adventure',
     description: 'Action-packed journeys and quests',
     icon: 'Map'
-  },
-  {
-    id: 'literary-fiction',
-    name: 'Literary Fiction',
-    description: 'Character-driven, artistic narratives',
-    icon: 'BookOpen'
-  },
-  {
-    id: 'crime',
-    name: 'Crime',
-    description: 'Criminal activities and investigations',
-    icon: 'Shield'
-  },
-  {
-    id: 'western',
-    name: 'Western',
-    description: 'American frontier and cowboy stories',
-    icon: 'Mountain'
-  },
-  {
-    id: 'paranormal',
-    name: 'Paranormal',
-    description: 'Supernatural and otherworldly elements',
-    icon: 'Eye'
-  },
-  {
-    id: 'dystopian',
-    name: 'Dystopian',
-    description: 'Dark futuristic societies',
-    icon: 'AlertTriangle'
-  },
-  {
-    id: 'comedy',
-    name: 'Comedy',
-    description: 'Humorous and lighthearted stories',
-    icon: 'Smile'
-  },
-  {
-    id: 'biography',
-    name: 'Biography',
-    description: 'Life stories of real people',
-    icon: 'User'
-  },
-  {
-    id: 'self-help',
-    name: 'Self-Help',
-    description: 'Personal development and improvement',
-    icon: 'TrendingUp'
-  },
-  {
-    id: 'business',
-    name: 'Business',
-    description: 'Entrepreneurship and professional growth',
-    icon: 'Briefcase'
-  },
-  {
-    id: 'health-fitness',
-    name: 'Health & Fitness',
-    description: 'Wellness and physical wellbeing',
-    icon: 'Activity'
-  },
-  {
-    id: 'action',
-    name: 'Action',
-    description: 'Fast-paced sequences and high-octane conflict',
-    icon: 'Swords'
   },
   {
     id: 'advertisement',
@@ -141,16 +26,16 @@ export const BOOK_GENRES: Genre[] = [
     icon: 'Radar'
   },
   {
-    id: 'kids-animated-action',
-    name: 'Kids Animated Action',
-    description: 'Energetic animated adventures for children',
-    icon: 'Clapperboard'
-  },
-  {
     id: 'anthology',
     name: 'Anthology',
     description: 'Collections of connected short stories',
     icon: 'Library'
+  },
+  {
+    id: 'biography',
+    name: 'Biography',
+    description: 'Life stories of real people',
+    icon: 'User'
   },
   {
     id: 'buddy-animals',
@@ -159,10 +44,22 @@ export const BOOK_GENRES: Genre[] = [
     icon: 'Dog'
   },
   {
+    id: 'business',
+    name: 'Business',
+    description: 'Entrepreneurship and professional growth',
+    icon: 'Briefcase'
+  },
+  {
     id: 'classic-cartoon',
     name: 'Classic Cartoon',
     description: 'Timeless slapstick and comic capers',
     icon: 'Tv'
+  },
+  {
+    id: 'comedy',
+    name: 'Comedy',
+    description: 'Humorous and lighthearted stories',
+    icon: 'Smile'
   },
   {
     id: 'coming-of-age',
@@ -175,6 +72,18 @@ export const BOOK_GENRES: Genre[] = [
     name: 'Conspiracy',
     description: 'Hidden plots and shadowy schemes',
     icon: 'Network'
+  },
+  {
+    id: 'contemporary-fiction',
+    name: 'Contemporary Fiction',
+    description: 'Modern-day literary stories',
+    icon: 'Users'
+  },
+  {
+    id: 'crime',
+    name: 'Crime',
+    description: 'Criminal activities and investigations',
+    icon: 'Shield'
   },
   {
     id: 'cryptid',
@@ -193,6 +102,12 @@ export const BOOK_GENRES: Genre[] = [
     name: 'Drama',
     description: 'Emotional, character-driven conflict',
     icon: 'Drama'
+  },
+  {
+    id: 'dystopian',
+    name: 'Dystopian',
+    description: 'Dark futuristic societies',
+    icon: 'AlertTriangle'
   },
   {
     id: 'edutainment',
@@ -219,10 +134,10 @@ export const BOOK_GENRES: Genre[] = [
     icon: 'HeartHandshake'
   },
   {
-    id: 'kids-sword-sorcery',
-    name: 'Kids Sword & Sorcery',
-    description: 'Kid-friendly magic and heroic quests',
-    icon: 'Sword'
+    id: 'fantasy',
+    name: 'Fantasy',
+    description: 'Magical worlds and supernatural elements',
+    icon: 'Sparkles'
   },
   {
     id: 'film-noir',
@@ -249,10 +164,40 @@ export const BOOK_GENRES: Genre[] = [
     icon: 'Home'
   },
   {
+    id: 'health-fitness',
+    name: 'Health & Fitness',
+    description: 'Wellness and physical wellbeing',
+    icon: 'Activity'
+  },
+  {
     id: 'heist',
     name: 'Heist',
     description: 'Elaborate robberies and clever cons',
     icon: 'Vault'
+  },
+  {
+    id: 'historical-fiction',
+    name: 'Historical Fiction',
+    description: 'Stories set in the past',
+    icon: 'Clock'
+  },
+  {
+    id: 'horror',
+    name: 'Horror',
+    description: 'Frightening and supernatural tales',
+    icon: 'Ghost'
+  },
+  {
+    id: 'kid-superhero',
+    name: 'Kid Superhero',
+    description: 'Young heroes with extraordinary powers',
+    icon: 'Zap'
+  },
+  {
+    id: 'kids-animated-action',
+    name: 'Kids Animated Action',
+    description: 'Energetic animated adventures for children',
+    icon: 'Clapperboard'
   },
   {
     id: 'kids-comedy',
@@ -273,16 +218,22 @@ export const BOOK_GENRES: Genre[] = [
     icon: 'Puzzle'
   },
   {
-    id: 'school-days',
-    name: 'School Days',
-    description: 'Classroom life and campus adventures',
-    icon: 'School'
-  },
-  {
     id: 'kids-sports',
     name: 'Kids Sports',
     description: 'Youthful teamwork and athletic dreams',
     icon: 'Medal'
+  },
+  {
+    id: 'kids-sword-sorcery',
+    name: 'Kids Sword & Sorcery',
+    description: 'Kid-friendly magic and heroic quests',
+    icon: 'Sword'
+  },
+  {
+    id: 'literary-fiction',
+    name: 'Literary Fiction',
+    description: 'Character-driven, artistic narratives',
+    icon: 'BookOpen'
   },
   {
     id: 'mecha-robots',
@@ -301,6 +252,18 @@ export const BOOK_GENRES: Genre[] = [
     name: 'Musical',
     description: 'Songs and performance driving the story',
     icon: 'Music'
+  },
+  {
+    id: 'mystery',
+    name: 'Mystery',
+    description: 'Suspenseful crime and detective stories',
+    icon: 'Search'
+  },
+  {
+    id: 'paranormal',
+    name: 'Paranormal',
+    description: 'Supernatural and otherworldly elements',
+    icon: 'Eye'
   },
   {
     id: 'possession',
@@ -339,6 +302,30 @@ export const BOOK_GENRES: Genre[] = [
     icon: 'Flame'
   },
   {
+    id: 'romance',
+    name: 'Romance',
+    description: 'Love stories and relationships',
+    icon: 'Heart'
+  },
+  {
+    id: 'school-days',
+    name: 'School Days',
+    description: 'Classroom life and campus adventures',
+    icon: 'School'
+  },
+  {
+    id: 'science-fiction',
+    name: 'Science Fiction',
+    description: 'Futuristic and technological themes',
+    icon: 'Rocket'
+  },
+  {
+    id: 'self-help',
+    name: 'Self-Help',
+    description: 'Personal development and improvement',
+    icon: 'TrendingUp'
+  },
+  {
     id: 'slasher',
     name: 'Slasher',
     description: 'A killer stalking a group of victims',
@@ -355,12 +342,6 @@ export const BOOK_GENRES: Genre[] = [
     name: 'Sports',
     description: 'Competition, teamwork, and triumph',
     icon: 'Trophy'
-  },
-  {
-    id: 'kid-superhero',
-    name: 'Kid Superhero',
-    description: 'Young heroes with extraordinary powers',
-    icon: 'Zap'
   },
   {
     id: 'supernatural',
@@ -381,6 +362,12 @@ export const BOOK_GENRES: Genre[] = [
     icon: 'PawPrint'
   },
   {
+    id: 'thriller',
+    name: 'Thriller',
+    description: 'High-stakes suspense and tension',
+    icon: 'Zap'
+  },
+  {
     id: 'time-travel',
     name: 'Time Travel',
     description: 'Journeys across the past and future',
@@ -397,5 +384,17 @@ export const BOOK_GENRES: Genre[] = [
     name: 'War',
     description: 'Conflict, battle, and its human cost',
     icon: 'Swords'
+  },
+  {
+    id: 'western',
+    name: 'Western',
+    description: 'American frontier and cowboy stories',
+    icon: 'Mountain'
+  },
+  {
+    id: 'young-adult',
+    name: 'Young Adult',
+    description: 'Coming-of-age stories for teens',
+    icon: 'Star'
   }
 ];
