@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Copy package files
 COPY package.json ./
-RUN yarn install --frozen-lockfile --network-timeout 100000 || yarn install --network-timeout 100000
+RUN yarn install --frozen-lockfile --network-timeout 100000 --ignore-engines || yarn install --network-timeout 100000 --ignore-engines
 
 # Stage 2: Builder
 FROM node:18-alpine AS builder
