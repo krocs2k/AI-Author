@@ -46,6 +46,14 @@ COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+# Prisma CLI (needed to run `prisma db push` on startup). Its runtime deps
+# (@prisma/config, @prisma/engines, @prisma/engines-version) are already
+# included in the @prisma namespace copied above.
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+
+# Startup entrypoint: syncs the database schema then starts the server
+COPY --from=builder /app/docker-entrypoint.sh ./docker-entrypoint.sh
+RUN chmod +x ./docker-entrypoint.sh
 
 USER nextjs
 
@@ -57,4 +65,4 @@ ENV HOSTNAME="0.0.0.0"
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 
-CMD ["node", "server.js"]
+CMD ["./docker-entrypoint.sh"]
