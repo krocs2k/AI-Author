@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -178,7 +177,7 @@ export function CharacterGeneration({
               <UserPlus className="w-5 h-5" />
               Configure Characters
             </span>
-            <Badge variant="outline" className="text-lg px-3 py-1">
+            <Badge variant="outline" className="text-lg px-3 py-1 text-teal-400 border-teal-400/40">
               {totalConfigured} Total
             </Badge>
           </CardTitle>
@@ -480,7 +479,7 @@ export function CharacterGeneration({
         )}
         {isLoading?.characters && (
           <p className="text-sm text-amber-400">
-            Generating characters... This may take 2-3 minutes
+            Generating characters one at a time... This may take a couple of minutes
           </p>
         )}
         <div className="flex gap-3">
