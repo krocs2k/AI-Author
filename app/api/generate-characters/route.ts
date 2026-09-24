@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { routeLLMClient } from '@/lib/routellm';
 import { withNovelSystemBible } from '@/lib/routellm/config-loader';
@@ -507,7 +506,7 @@ Respond ONLY with the JSON object, no additional text.`;
 
 export async function POST(request: NextRequest) {
   try {
-    const { genre, synopsis, title, action, characterConfig } = await request.json();
+    const { genre, synopsis, title, action, characterConfig, role: singleRole, existingCharacters: singleExisting } = await request.json();
     
     // Action: getRecommendations - Return genre-based recommendations
     if (action === 'getRecommendations') {
@@ -599,7 +598,8 @@ export async function POST(request: NextRequest) {
     
     // Action: generateSingle - Generate a single additional character
     if (action === 'generateSingle') {
-      const { role, existingCharacters } = await request.json();
+      const role = singleRole;
+      const existingCharacters = singleExisting;
       
       if (!synopsis || !title || !genre || !role) {
         return NextResponse.json({ 
