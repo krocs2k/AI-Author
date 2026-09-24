@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { Chapter } from '@/lib/types'
+import { Chapter, Character } from '@/lib/types'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -303,5 +303,110 @@ export async function downloadContentAsDocx(
     console.error('DOCX generation failed:', error);
     // Fallback to text download
     downloadAsFile(content, `${filename}.txt`, 'text/plain');
+  }
+}
+
+// Download the Character Bible as a DOCX (built server-side for reliability in production)
+export async function downloadCharacterBibleAsDocx(
+  title: string,
+  characters: Character[]
+) {
+  const safeTitle = title.replace(/[^a-zA-Z0-9]/g, '_');
+  try {
+    const { saveAs } = await import('file-saver');
+
+    const response = await fetch('/api/export/docx', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        kind: 'character-bible',
+        title,
+        characters,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Server DOCX generation failed with status ${response.status}`);
+    }
+
+    const blob = await response.blob();
+    saveAs(blob, `${safeTitle}_Character_Bible.docx`);
+  } catch (error) {
+    console.error('Character Bible DOCX generation failed:', error);
+    // Fallback to a plain-text bible so the user still gets the content
+    let text = `${title} - Character Bible\n${'='.repeat(title.length + 18)}\n\n`;
+    (characters || []).forEach((c) => {
+      text += `${c.name || 'Unnamed'}\n${'-'.repeat((c.name || 'Unnamed').length)}\n`;
+      if (c.role) text += `Role: ${c.role.replace(/_/g, ' ')}\n`;
+      if (c.age) text += `Age: ${c.age}\n`;
+      if (c.gender) text += `Gender: ${c.gender}\n`;
+      if (c.occupation) text += `Occupation: ${c.occupation}\n`;
+      if (c.voiceStyle) text += `Voice / Dialogue Style: ${c.voiceStyle}\n`;
+      if (c.physicalDescription) text += `\nPhysical Description:\n${c.physicalDescription}\n`;
+      if (c.personality?.length) text += `\nPersonality: ${c.personality.join(', ')}\n`;
+      if (c.keyTraits?.length) text += `Key Traits: ${c.keyTraits.join(', ')}\n`;
+      if (c.strengths?.length) text += `Strengths: ${c.strengths.join(', ')}\n`;
+      if (c.flaws?.length) text += `Flaws: ${c.flaws.join(', ')}\n`;
+      if (c.backstory) text += `\nBackstory:\n${c.backstory}\n`;
+      if (c.motivation) text += `\nMotivation:\n${c.motivation}\n`;
+      if (c.arc) text += `\nCharacter Arc:\n${c.arc}\n`;
+      if (c.relationships?.length) {
+        text += `\nRelationships:\n`;
+        c.relationships.forEach((r) => {
+          text += `  - ${r.characterName || 'Unknown'}: ${r.relationship || ''}\n`;
+        });
+      }
+      text += `\n\n`;
+    });
+    downloadAsFile(text, `${safeTitle}_Character_Bible.txt`, 'text/plain');
+  }
+}
+
+export interface LocationEntry {
+  name?: string;
+  type?: string;
+  description?: string;
+  significance?: string;
+  atmosphere?: string;
+}
+
+// Download the Location Bible as a DOCX (built server-side for reliability in production)
+export async function downloadLocationBibleAsDocx(
+  title: string,
+  locations: LocationEntry[]
+) {
+  const safeTitle = title.replace(/[^a-zA-Z0-9]/g, '_');
+  try {
+    const { saveAs } = await import('file-saver');
+
+    const response = await fetch('/api/export/docx', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        kind: 'location-bible',
+        title,
+        locations,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Server DOCX generation failed with status ${response.status}`);
+    }
+
+    const blob = await response.blob();
+    saveAs(blob, `${safeTitle}_Location_Bible.docx`);
+  } catch (error) {
+    console.error('Location Bible DOCX generation failed:', error);
+    // Fallback to a plain-text bible so the user still gets the content
+    let text = `${title} - Location Bible\n${'='.repeat(title.length + 17)}\n\n`;
+    (locations || []).forEach((l) => {
+      text += `${l.name || 'Unnamed'}\n${'-'.repeat((l.name || 'Unnamed').length)}\n`;
+      if (l.type) text += `Type: ${l.type}\n`;
+      if (l.description) text += `\nDescription:\n${l.description}\n`;
+      if (l.atmosphere) text += `\nAtmosphere:\n${l.atmosphere}\n`;
+      if (l.significance) text += `\nSignificance to the Story:\n${l.significance}\n`;
+      text += `\n\n`;
+    });
+    downloadAsFile(text, `${safeTitle}_Location_Bible.txt`, 'text/plain');
   }
 }

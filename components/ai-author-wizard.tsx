@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -15,7 +16,7 @@ import { ContentCreation } from './wizard/content-creation';
 import { MarketingFinalization } from './wizard/marketing-finalization';
 import { CoverArt } from './wizard/cover-art';
 import { AnimatedProgress, PROGRESS_CONFIGS, ProgressStep } from './ui/animated-progress';
-import { calculateReadTime, generateHumanizationScore, generateSuccessProbability, simulateAnalysisDelay, downloadAsFile, downloadBookAsPDF, downloadBookAsDocx, downloadBookAsText } from '@/lib/utils';
+import { calculateReadTime, generateHumanizationScore, generateSuccessProbability, simulateAnalysisDelay, downloadAsFile, downloadBookAsPDF, downloadBookAsDocx, downloadBookAsText, downloadCharacterBibleAsDocx, downloadLocationBibleAsDocx } from '@/lib/utils';
 import { BOOK_GENRES } from '@/lib/genres';
 import { Button } from './ui/button';
 import { BookOpen, LogOut, Shield, User, RotateCcw, FolderOpen, Save } from 'lucide-react';
@@ -140,7 +141,12 @@ export default function AIAuthorWizard() {
               forward: data.forward,
               forwardWordCount: data.forwardWordCount,
               chapters: data.chapters || [],
-              coverPrompts: data.coverPrompts,
+              coverPrompts: data.coverPrompts
+                ? {
+                    front: data.coverPrompts.front || data.coverPrompts.frontCovers || [],
+                    back: data.coverPrompts.back || data.coverPrompts.backCovers || [],
+                  }
+                : undefined,
               salesCopy: data.salesCopy,
               backCoverCopy: data.backCoverCopy,
               totalWordCount: data.totalWordCount,
@@ -1104,8 +1110,13 @@ export default function AIAuthorWizard() {
       advanceProgress('Generating cover concepts');
       await new Promise(r => setTimeout(r, 400));
       
-      const prompts = await response.json();
-      await updateSession({ coverPrompts: prompts });
+      const data = await response.json();
+      // The API returns { frontCovers, backCovers }, but the UI/type expects { front, back }.
+      const normalized = {
+        front: data.front || data.frontCovers || [],
+        back: data.back || data.backCovers || [],
+      };
+      await updateSession({ coverPrompts: normalized });
       
       completeProgress();
     } catch (error) {
@@ -1195,10 +1206,41 @@ export default function AIAuthorWizard() {
     // Download individual marketing assets
     if (session.coverPrompts) {
       const coverPromptsText = 'FRONT COVER PROMPTS:\n\n' + 
-        session.coverPrompts.front?.join('\n\n') + 
+        (session.coverPrompts.front || []).join('\n\n') + 
         '\n\n\nBACK COVER PROMPTS:\n\n' + 
-        session.coverPrompts.back?.join('\n\n');
+        (session.coverPrompts.back || []).join('\n\n');
       downloadAsFile(coverPromptsText, 'cover-prompts.txt');
+    }
+
+    // Character Bible (built from characters already generated in this session)
+    if (session.characters && session.characters.length > 0) {
+      await downloadCharacterBibleAsDocx(title, session.characters);
+    }
+
+    // Location Bible (locations are not stored, so generate them from the book context)
+    try {
+      const locRes = await fetch('/api/generate-locations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          genre: session.selectedGenre,
+          synopsis: session.selectedSynopsis,
+          chapters: (session.chapters || []).map((c) => ({
+            chapterNumber: c.chapterNumber,
+            title: c.title,
+            content: c.content,
+          })),
+        }),
+      });
+      if (locRes.ok) {
+        const locData = await locRes.json();
+        if (locData.locations && locData.locations.length > 0) {
+          await downloadLocationBibleAsDocx(title, locData.locations);
+        }
+      }
+    } catch (error) {
+      console.error('Location Bible generation failed:', error);
     }
   };
 
