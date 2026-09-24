@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -696,49 +695,62 @@ export default function AIAuthorWizard() {
         throw new Error('Missing required data: title, synopsis, or genre');
       }
       
-      advanceProgress('Developing protagonist(s)');
-      
-      const response = await fetch('/api/generate-characters', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'generateCharacters',
-          genre: bookGenre,
-          synopsis: bookSynopsis,
-          title: bookTitle,
-          characterConfig: config,
-          seriesContext: storyBibleContext?.characters ? {
-            existingSeriesCharacters: storyBibleContext.characters,
-            voiceAndStyle: storyBibleContext.voiceAndStyle,
-          } : undefined
-        }),
-      });
-      
-      advanceProgress('Creating antagonist(s)');
-      await new Promise(r => setTimeout(r, 300));
-      
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+      // Build the role queue client-side (mirrors the server's generateCharacters logic)
+      // so each character is generated in its OWN short request. This avoids the proxy
+      // timeout (524) that happened when all characters were created in one long request.
+      const cfg = { ...config };
+      const roleQueue: CharacterRole[] = [];
+      for (let i = 0; i < (cfg.protagonists || 0); i++) roleQueue.push('protagonist');
+      for (let i = 0; i < (cfg.antagonists || 0); i++) roleQueue.push('antagonist');
+      const genreKey = (bookGenre || '').toLowerCase().replace(/\s+/g, '-');
+      if (['romance', 'young-adult'].includes(genreKey) && cfg.supporting > 0) {
+        roleQueue.push('love_interest');
+        cfg.supporting = Math.max(0, (cfg.supporting || 0) - 1);
       }
-      
-      const data = await response.json();
-      
-      advanceProgress('Building supporting cast');
-      await new Promise(r => setTimeout(r, 300));
-      
-      if (!data.success || !data.characters) {
-        throw new Error(data.error || 'Failed to generate characters');
+      if (['fantasy', 'young-adult', 'science-fiction'].includes(genreKey) && cfg.supporting > 0) {
+        roleQueue.push('mentor');
+        cfg.supporting = Math.max(0, (cfg.supporting || 0) - 1);
       }
-      
-      advanceProgress('Establishing relationships');
-      await new Promise(r => setTimeout(r, 200));
-      
-      advanceProgress('Finalizing character profiles');
-      await new Promise(r => setTimeout(r, 200));
-      
-      console.log(`Generated ${data.characters.length} characters successfully`);
-      
-      setSession(prev => ({ ...prev, characters: data.characters }));
+      for (let i = 0; i < (cfg.supporting || 0); i++) roleQueue.push('supporting');
+      for (let i = 0; i < (cfg.minor || 0); i++) roleQueue.push('minor');
+
+      const accumulated: Character[] = [];
+      for (let i = 0; i < roleQueue.length; i++) {
+        const role = roleQueue[i];
+        advanceProgress(`Creating character ${i + 1} of ${roleQueue.length}...`);
+        try {
+          const response = await fetch('/api/generate-characters', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'generateSingle',
+              genre: bookGenre,
+              synopsis: bookSynopsis,
+              title: bookTitle,
+              role,
+              existingCharacters: accumulated,
+            }),
+          });
+          if (!response.ok) {
+            console.warn(`Character ${i + 1} (${role}) failed: ${response.status}`);
+            continue;
+          }
+          const data = await response.json();
+          if (data.success && data.character) {
+            accumulated.push(data.character);
+            setSession(prev => ({ ...prev, characters: [...accumulated] }));
+          }
+        } catch (err) {
+          console.warn(`Character ${i + 1} (${role}) error:`, err);
+        }
+      }
+
+      if (accumulated.length === 0) {
+        throw new Error('Failed to generate any characters');
+      }
+
+      console.log(`Generated ${accumulated.length} characters successfully`);
+      setSession(prev => ({ ...prev, characters: accumulated }));
       completeProgress();
       
     } catch (error) {
