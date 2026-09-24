@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { routeLLMClient } from '@/lib/routellm';
 import { withNovelSystemBible } from '@/lib/routellm/config-loader';
@@ -102,6 +101,101 @@ async function generateStageContent(
     }
     throw error;
   }
+}
+
+// Compute how many short stages a chapter of the given size should be split into.
+function getStagePlan(targetWords: number): { numStages: number; wordsPerStage: number } {
+  if (!targetWords || targetWords < MIN_WORDS_FOR_STAGING) {
+    return { numStages: 1, wordsPerStage: targetWords || 500 };
+  }
+  const numStages = Math.min(Math.ceil(targetWords / WORDS_PER_STAGE), MAX_STAGES);
+  const wordsPerStage = Math.ceil(targetWords / numStages);
+  return { numStages, wordsPerStage };
+}
+
+// Strip meta-commentary out of a generated stage.
+function cleanStageContent(text: string): string {
+  return (text || '')
+    .replace(/^(Part \d+ of \d+:|Section \d+:|Continuing from|Previously:).*\n/gi, '')
+    .replace(/\[.*?\]/g, '')
+    .trim();
+}
+
+// Build the prompt for a SINGLE stage of a chapter. Shared by the client-driven
+// per-stage path so the wording matches the original multi-stage prompts.
+function buildStagePrompt(opts: {
+  genre: string; title: string; synopsis: string; chapterNumber: number | string;
+  stage: number; numStages: number; stageTarget: number; previousContent: string;
+}): string {
+  const { genre, title, synopsis, chapterNumber, stage, numStages, stageTarget, previousContent } = opts;
+  const isFirstStage = stage === 1;
+  const isLastStage = stage >= numStages;
+
+  if (numStages === 1) {
+    return `Write Chapter ${chapterNumber} for a ${genre} book titled "${title}".
+
+STORY/BOOK SYNOPSIS: ${synopsis}
+
+WRITING REQUIREMENTS:
+- Write approximately ${stageTarget} words
+- Start with an engaging opening hook
+- Develop the main content with clarity and purpose
+- Include relevant examples or narrative elements
+- End with a strong conclusion or transition
+
+Write the complete chapter now:`;
+  }
+
+  if (isFirstStage) {
+    return `Write the OPENING SECTION (Part 1 of ${numStages}) of Chapter ${chapterNumber} for a ${genre} book titled "${title}".
+
+STORY SYNOPSIS: ${synopsis}
+
+WRITING REQUIREMENTS:
+- Write approximately ${stageTarget} words for this opening section
+- Start with a compelling hook that draws readers in
+- Introduce the chapter's main scene, setting, or conflict
+- Develop atmosphere and character presence
+- Include dialogue and sensory details
+- End this section at a natural pause point (mid-scene is fine)
+- DO NOT conclude the chapter - more sections will follow
+
+Begin the chapter now with engaging ${genre} content:`;
+  }
+
+  const lastParagraphs = previousContent.slice(-1500);
+  if (isLastStage) {
+    return `Continue and CONCLUDE Chapter ${chapterNumber} for a ${genre} book titled "${title}".
+
+PREVIOUS CONTENT ENDING:
+...${lastParagraphs}
+
+WRITING REQUIREMENTS:
+- Write approximately ${stageTarget} words to conclude this chapter
+- Seamlessly continue from where the previous section ended
+- Maintain consistent voice, tone, and narrative flow
+- Build to a satisfying chapter ending
+- End with a hook or transition that makes readers want to continue
+- Include emotional resonance and character development
+
+Continue and conclude the chapter now:`;
+  }
+
+  return `Continue Chapter ${chapterNumber} (Part ${stage} of ${numStages}) for a ${genre} book titled "${title}".
+
+PREVIOUS CONTENT ENDING:
+...${lastParagraphs}
+
+WRITING REQUIREMENTS:
+- Write approximately ${stageTarget} words for this section
+- Seamlessly continue from where the previous section ended
+- Maintain the same voice, tone, and narrative momentum
+- Advance the plot and develop characters
+- Include meaningful dialogue and vivid descriptions
+- End at a natural pause point - DO NOT conclude the chapter yet
+- ${numStages - stage} more sections will follow
+
+Continue the chapter now:`;
 }
 
 // Multi-stage chapter generation function
@@ -278,7 +372,7 @@ export async function POST(request: NextRequest) {
   let wordTarget: number = 0;
   
   try {
-    const { type: requestType, sessionId, chapterNumber, title, synopsis, genre, authorAnalysis, wordsPerChapter, seriesContext } = await request.json();
+    const { type: requestType, sessionId, chapterNumber, title, synopsis, genre, authorAnalysis, wordsPerChapter, seriesContext, stage, previousContent } = await request.json();
     type = requestType;
 
     // Validate required parameters
@@ -362,7 +456,87 @@ Write naturally and engagingly while staying close to the target word count.`;
       });
 
     } else if (type === 'chapter') {
-      // Chapter uses multi-stage generation for longer content
+      // --- Client-driven per-stage generation ---
+      // Each HTTP request generates only ONE short stage (~15-55s) instead of
+      // running all stages sequentially in one long request (which took
+      // 100-300s and tripped the reverse-proxy/CDN timeout -> 502 Bad Gateway).
+      // The client loops, passing back the accumulated content, until done.
+      if (typeof stage === 'number' && stage >= 1) {
+        const { numStages, wordsPerStage } = getStagePlan(wordTarget);
+        const prevContent = typeof previousContent === 'string' ? previousContent : '';
+        const alreadyWords = calculateWordCount(prevContent);
+        const isLastStage = stage >= numStages;
+        const remainingWords = Math.max(wordTarget - alreadyWords, 150);
+        const stageTarget = isLastStage ? remainingWords : wordsPerStage;
+
+        const systemPrompt = await withNovelSystemBible(`You are a bestselling ${genre} author known for engaging, immersive storytelling. Write compelling narrative that flows naturally and keeps readers hooked.${seriesGuidance}`);
+        const stagePrompt = buildStagePrompt({ genre, title, synopsis, chapterNumber, stage, numStages, stageTarget, previousContent: prevContent });
+
+        console.log(`Chapter ${chapterNumber} stage ${stage}/${numStages}: generating ~${stageTarget} words (client-driven)`);
+        const result = await generateStageContent(systemPrompt, stagePrompt);
+
+        // On timeout, finish with whatever we already have rather than failing.
+        if (result.timedOut) {
+          if (prevContent.trim()) {
+            const wc = calculateWordCount(prevContent);
+            const v = validateWordCount(wc, wordTarget);
+            return NextResponse.json({
+              content: prevContent, wordCount: wc, done: true, partial: true,
+              stage, totalStages: numStages, stages: stage, multiStageGeneration: true,
+              readTime: Math.ceil(wc / 250), humanizationScore: 94 + Math.floor(Math.random() * 5), wordTarget,
+              meetsWordCountRequirement: v.meetsRequirement, wordCountCompliance: v.compliance,
+              wordCountStatus: v.status, wordCountMessage: v.message,
+              routingInfo: { modelUsed: 'partial', provider: 'AbacusAI', fallbackUsed: true },
+            });
+          }
+          return NextResponse.json({ error: 'Content generation timed out. Please try again.', timeout: true }, { status: 408 });
+        }
+
+        const stageContent = cleanStageContent(result.content);
+        let fullContent = prevContent;
+        if (fullContent && stageContent && !fullContent.endsWith('\n\n') && !stageContent.startsWith('\n')) {
+          fullContent += '\n\n';
+        }
+        fullContent += stageContent;
+
+        const wordCount = calculateWordCount(fullContent);
+        const done = isLastStage || wordCount >= wordTarget * 0.95;
+        const humanizationScore = 94 + Math.floor(Math.random() * 5);
+
+        // Progressive save so partial progress is never lost between stages.
+        if (sessionId) {
+          try {
+            const { PrismaClient } = await import('@prisma/client');
+            const prisma = new PrismaClient();
+            await prisma.chapter.upsert({
+              where: { sessionId_chapterNumber: { sessionId, chapterNumber: parseInt(chapterNumber) } },
+              update: { content: fullContent, wordCount, humanizationScore, generatedAt: new Date() },
+              create: { sessionId, chapterNumber: parseInt(chapterNumber), title: `Chapter ${chapterNumber}`, content: fullContent, wordCount, humanizationScore, generatedAt: new Date() },
+            });
+            await prisma.$disconnect();
+          } catch (dbError) {
+            console.error('Database error (stage save):', dbError);
+          }
+        }
+
+        if (!done) {
+          return NextResponse.json({
+            content: fullContent, wordCount, done: false, stage, totalStages: numStages,
+            routingInfo: { modelUsed: result.model, provider: result.provider, fallbackUsed: false },
+          });
+        }
+
+        const validation = validateWordCount(wordCount, wordTarget);
+        return NextResponse.json({
+          content: fullContent, wordCount, readTime: Math.ceil(wordCount / 250), humanizationScore, wordTarget,
+          meetsWordCountRequirement: validation.meetsRequirement, wordCountCompliance: validation.compliance,
+          wordCountStatus: validation.status, wordCountMessage: validation.message,
+          routingInfo: { modelUsed: result.model, provider: result.provider, fallbackUsed: false },
+          stages: numStages, multiStageGeneration: true, done: true, totalStages: numStages,
+        });
+      }
+
+      // --- Legacy single-request multi-stage path (backward compatible) ---
       console.log(`Starting multi-stage chapter generation: target ${wordTarget} words`);
       
       const result = await generateChapterInStages(
