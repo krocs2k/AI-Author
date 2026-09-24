@@ -1,4 +1,3 @@
-
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { Chapter } from '@/lib/types'
@@ -183,203 +182,27 @@ export async function downloadBookAsDocx(
   backCoverCopy?: string
 ) {
   try {
-    // Dynamic imports to avoid SSR issues
-    const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = await import('docx');
+    // Generate the DOCX on the server (reliable in production) and download the result.
     const { saveAs } = await import('file-saver');
 
-    // Create document content
-    const children: any[] = [];
-
-    // Title page
-    children.push(
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: title,
-            bold: true,
-            size: 48,
-          }),
-        ],
-        alignment: AlignmentType.CENTER,
-        spacing: { after: 400 },
-      })
-    );
-
-    // Add page break
-    children.push(
-      new Paragraph({
-        children: [new TextRun({ text: '', break: 1 })],
-        pageBreakBefore: true,
-      })
-    );
-
-    // Forward/Introduction
-    if (forward) {
-      children.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: 'FORWARD',
-              bold: true,
-              size: 32,
-            }),
-          ],
-          heading: HeadingLevel.HEADING_1,
-          spacing: { after: 200 },
-        })
-      );
-
-      // Split forward into paragraphs
-      const forwardParagraphs = forward.split('\n').filter(p => p.trim());
-      forwardParagraphs.forEach(paragraph => {
-        children.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: paragraph,
-                size: 24,
-              }),
-            ],
-            spacing: { after: 200 },
-          })
-        );
-      });
-    }
-
-    // Chapters
-    chapters.forEach(chapter => {
-      if (chapter.content) {
-        // Chapter title
-        children.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: `Chapter ${chapter.chapterNumber}`,
-                bold: true,
-                size: 28,
-              }),
-            ],
-            heading: HeadingLevel.HEADING_2,
-            spacing: { before: 400, after: 200 },
-          })
-        );
-
-        // Chapter content - split into paragraphs
-        const chapterParagraphs = chapter.content.split('\n').filter(p => p.trim());
-        chapterParagraphs.forEach(paragraph => {
-          children.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: paragraph,
-                  size: 24,
-                }),
-              ],
-              spacing: { after: 200 },
-            })
-          );
-        });
-      }
+    const response = await fetch('/api/export/docx', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        kind: 'book',
+        title,
+        forward,
+        chapters,
+        salesCopy,
+        backCoverCopy,
+      }),
     });
 
-    // Marketing materials as appendix
-    if (salesCopy || backCoverCopy) {
-      children.push(
-        new Paragraph({
-          children: [new TextRun({ text: '', break: 1 })],
-          pageBreakBefore: true,
-        })
-      );
-
-      children.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: 'MARKETING MATERIALS',
-              bold: true,
-              size: 32,
-            }),
-          ],
-          heading: HeadingLevel.HEADING_1,
-          spacing: { after: 200 },
-        })
-      );
-
-      if (salesCopy) {
-        children.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: 'Sales Copy',
-                bold: true,
-                size: 28,
-              }),
-            ],
-            heading: HeadingLevel.HEADING_2,
-            spacing: { before: 400, after: 200 },
-          })
-        );
-
-        const salesParagraphs = salesCopy.split('\n').filter(p => p.trim());
-        salesParagraphs.forEach(paragraph => {
-          children.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: paragraph,
-                  size: 24,
-                }),
-              ],
-              spacing: { after: 200 },
-            })
-          );
-        });
-      }
-
-      if (backCoverCopy) {
-        children.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: 'Back Cover Copy',
-                bold: true,
-                size: 28,
-              }),
-            ],
-            heading: HeadingLevel.HEADING_2,
-            spacing: { before: 400, after: 200 },
-          })
-        );
-
-        const backCoverParagraphs = backCoverCopy.split('\n').filter(p => p.trim());
-        backCoverParagraphs.forEach(paragraph => {
-          children.push(
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: paragraph,
-                  size: 24,
-                }),
-              ],
-              spacing: { after: 200 },
-            })
-          );
-        });
-      }
+    if (!response.ok) {
+      throw new Error(`Server DOCX generation failed with status ${response.status}`);
     }
 
-    // Create document
-    const doc = new Document({
-      sections: [
-        {
-          properties: {},
-          children: children,
-        },
-      ],
-    });
-
-    // Generate and save
-    const blob = await Packer.toBlob(doc);
+    const blob = await response.blob();
     const safeTitle = title.replace(/[^a-zA-Z0-9]/g, '_');
     saveAs(blob, `${safeTitle}.docx`);
 
@@ -455,52 +278,25 @@ export async function downloadContentAsDocx(
   filename: string
 ) {
   try {
-    const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = await import('docx');
+    // Generate the DOCX on the server (reliable in production) and download the result.
     const { saveAs } = await import('file-saver');
 
-    const children: any[] = [];
-
-    // Title
-    children.push(
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: title,
-            bold: true,
-            size: 36,
-          }),
-        ],
-        alignment: AlignmentType.CENTER,
-        spacing: { after: 400 },
-      })
-    );
-
-    // Content - split into paragraphs
-    const paragraphs = content.split('\n').filter(p => p.trim());
-    paragraphs.forEach(paragraph => {
-      children.push(
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: paragraph,
-              size: 24,
-            }),
-          ],
-          spacing: { after: 200 },
-        })
-      );
+    const response = await fetch('/api/export/docx', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        kind: 'content',
+        content,
+        title,
+        filename,
+      }),
     });
 
-    const doc = new Document({
-      sections: [
-        {
-          properties: {},
-          children: children,
-        },
-      ],
-    });
+    if (!response.ok) {
+      throw new Error(`Server DOCX generation failed with status ${response.status}`);
+    }
 
-    const blob = await Packer.toBlob(doc);
+    const blob = await response.blob();
     saveAs(blob, `${filename}.docx`);
 
   } catch (error) {
