@@ -22,5 +22,20 @@ else
   echo "[entrypoint] WARNING: prisma db push did not complete cleanly. Starting server anyway."
 fi
 
+# ---------------------------------------------------------------------------
+# Ensure an approved admin account exists
+# ---------------------------------------------------------------------------
+# On a fresh self-hosted database there are no user accounts, so nobody could
+# log in. This idempotently creates (or re-approves) the admin account. It is
+# non-destructive and never touches other data. Credentials can be overridden
+# with ADMIN_EMAIL / ADMIN_PASSWORD env vars.
+# ---------------------------------------------------------------------------
+echo "[entrypoint] Ensuring admin account exists..."
+if node scripts/ensure-admin.js; then
+  echo "[entrypoint] Admin account is ready."
+else
+  echo "[entrypoint] WARNING: could not ensure admin account. Starting server anyway."
+fi
+
 echo "[entrypoint] Starting server..."
 exec node server.js
