@@ -176,13 +176,14 @@ function sectionParagraph(label: string, value?: string): Paragraph[] {
   ];
 }
 
-function listParagraph(label: string, items?: string[]): Paragraph[] {
-  if (!items || items.length === 0) return [];
+function listParagraph(label: string, items?: string[] | string): Paragraph[] {
+  const arr = Array.isArray(items) ? items : items ? [items] : [];
+  if (arr.length === 0) return [];
   return [
     new Paragraph({
       children: [
         new TextRun({ text: `${label}: `, bold: true, size: 24 }),
-        new TextRun({ text: items.filter(Boolean).join(', '), size: 24 }),
+        new TextRun({ text: arr.filter(Boolean).join(', '), size: 24 }),
       ],
       spacing: { after: 120 },
     }),
