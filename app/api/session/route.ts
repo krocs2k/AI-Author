@@ -8,7 +8,19 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   try {
     const authSession = await getServerSession(authOptions);
-    const userId = (authSession?.user as any)?.id || null;
+    const rawUserId = (authSession?.user as any)?.id || null;
+
+    // Guard against a stale/mismatched login token that references a user id
+    // which no longer exists in this database (e.g. after the DB was recreated
+    // or the admin account was regenerated). Using such an id as a foreign key
+    // throws a P2003 constraint error -> 500. If the user cannot be found, fall
+    // back to an anonymous session so the wizard never crashes.
+    let userId: string | null = null;
+    if (rawUserId) {
+      const existing = await prisma.user.findUnique({ where: { id: rawUserId }, select: { id: true } });
+      userId = existing ? existing.id : null;
+    }
+
     let body: any = {};
     try { body = await request.json(); } catch {}
     const { name, folderId, seriesId } = body || {};
