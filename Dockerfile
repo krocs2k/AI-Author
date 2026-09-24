@@ -55,6 +55,9 @@ COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder /app/docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x ./docker-entrypoint.sh
 
+# Startup admin bootstrap script (creates/ensures the admin account)
+COPY --from=builder /app/scripts/ensure-admin.js ./scripts/ensure-admin.js
+
 USER nextjs
 
 EXPOSE 3000
