@@ -57,6 +57,10 @@ RUN chmod +x ./docker-entrypoint.sh
 
 # Startup admin bootstrap script (creates/ensures the admin account)
 COPY --from=builder /app/scripts/ensure-admin.js ./scripts/ensure-admin.js
+# bcryptjs is required by the bootstrap script above. Next.js bundles it into
+# the compiled server output, so it is NOT present as a resolvable module in the
+# standalone node_modules. It is dependency-free, so copy the folder directly.
+COPY --from=builder /app/node_modules/bcryptjs ./node_modules/bcryptjs
 
 USER nextjs
 
