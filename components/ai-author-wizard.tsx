@@ -892,38 +892,64 @@ export default function AIAuthorWizard() {
         throw new Error('Missing required data: title, synopsis, or genre');
       }
       
-      // Step 2: Opening section
-      advanceProgress(`Writing opening (~${Math.floor(targetWords / 4)} words)`);
-      
-      const response = await fetch('/api/generate-content', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'chapter',
-          sessionId,
-          chapterNumber,
-          title: bookTitle,
-          synopsis: bookSynopsis,
-          genre: bookGenre,
-          authorAnalysis: session.authorAnalysis,
-          wordsPerChapter: targetWords,
-          seriesContext: storyBibleContext?.voiceAndStyle ? {
-            voiceAndStyle: storyBibleContext.voiceAndStyle,
-            continuityNotes: storyBibleContext.continuityNotes,
-          } : undefined,
-        }),
-      });
-      
-      // Step 3: Middle sections (shown while waiting)
-      advanceProgress(`Building narrative (~${Math.floor(targetWords / 2)} words)`);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Chapter generation API error:', response.status, errorText);
-        throw new Error(`API error: ${response.status}`);
+      // Client-driven per-stage generation: each request generates ONE short
+      // section (~15-55s) and returns the accumulated content, so no single
+      // request runs long enough to trip the reverse-proxy/CDN timeout (502).
+      const seriesContextPayload = storyBibleContext?.voiceAndStyle ? {
+        voiceAndStyle: storyBibleContext.voiceAndStyle,
+        continuityNotes: storyBibleContext.continuityNotes,
+      } : undefined;
+
+      let content: any = null;
+      let accumulated = '';
+      let stage = 1;
+      let totalStages = 1;
+      let done = false;
+
+      while (!done) {
+        advanceProgress(
+          totalStages > 1
+            ? `Writing chapter ${chapterNumber} (part ${Math.min(stage, totalStages)}/${totalStages})`
+            : `Writing chapter ${chapterNumber}`
+        );
+
+        const response = await fetch('/api/generate-content', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'chapter',
+            sessionId,
+            chapterNumber,
+            title: bookTitle,
+            synopsis: bookSynopsis,
+            genre: bookGenre,
+            authorAnalysis: session.authorAnalysis,
+            wordsPerChapter: targetWords,
+            stage,
+            previousContent: accumulated,
+            seriesContext: seriesContextPayload,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Chapter generation API error:', response.status, errorText);
+          throw new Error(`API error: ${response.status}`);
+        }
+
+        content = await response.json();
+        if (content.error) {
+          throw new Error(content.error);
+        }
+
+        accumulated = typeof content.content === 'string' ? content.content : accumulated;
+        totalStages = content.totalStages || totalStages;
+        done = content.done === true || stage >= totalStages;
+        stage++;
+
+        // Safety cap so a misbehaving response can never loop forever.
+        if (stage > 12) break;
       }
-      
-      const content = await response.json();
       
       // Step 4: Conclusion
       advanceProgress(`Finalizing chapter`);
