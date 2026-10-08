@@ -244,6 +244,15 @@ model BookSession {
   coverImageUrl     String?  @db.Text
   coverImagePrompt  String?  @db.Text
   coverImageModel   String?
+
+  // Author & Publishing (printed on the cover)
+  authorName        String?
+  publishingInfo    String?  @db.Text
+
+  // Back Cover Art
+  backCoverImageUrl    String?  @db.Text
+  backCoverImagePrompt String?  @db.Text
+  backCoverImageModel  String?
   
   // Genre Selection
   selectedGenre     String?

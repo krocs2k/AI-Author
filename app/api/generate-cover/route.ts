@@ -8,7 +8,7 @@ export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
-    const { sessionId, action, customPrompt } = await req.json();
+    const { sessionId, action, customPrompt, coverType, authorName, publishingInfo } = await req.json();
 
     if (!sessionId) {
       return NextResponse.json({ error: 'Session ID required' }, { status: 400 });
@@ -25,12 +25,20 @@ export async function POST(req: NextRequest) {
     const title = session.selectedTitle || session.customTitle || 'Untitled';
     const genre = session.selectedGenre || 'fiction';
     const synopsis = session.selectedSynopsis || '';
+    // Prefer values passed in the request (latest UI state) and fall back to what
+    // is stored on the session so cover text stays correct on regenerate/restore.
+    const author = (authorName ?? session.authorName ?? '').toString().trim();
+    const publishing = (publishingInfo ?? session.publishingInfo ?? '').toString().trim();
+    const blurb = (session.backCoverCopy || session.salesCopy || synopsis || '').toString();
 
     // Build a rich cover prompt from the book
     const chapterTitles = session.chapters?.map(c => c.title).filter(Boolean).join(', ') || '';
 
     if (action === 'generate') {
-      const coverPrompt = customPrompt || buildCoverPrompt(title, genre, synopsis, chapterTitles);
+      const isBack = coverType === 'back';
+      const coverPrompt = customPrompt || (isBack
+        ? buildBackCoverPrompt(title, genre, blurb, author, publishing)
+        : buildCoverPrompt(title, genre, synopsis, chapterTitles, author, publishing));
 
       const config = await getActiveLLMConfig();
       const results = await generateImage(coverPrompt, {
@@ -58,22 +66,34 @@ export async function POST(req: NextRequest) {
 // PATCH to save selected cover to the session
 export async function PATCH(req: NextRequest) {
   try {
-    const { sessionId, imageUrl, prompt, model } = await req.json();
+    const { sessionId, imageUrl, prompt, model, coverType, authorName, publishingInfo } = await req.json();
     if (!sessionId || !imageUrl) {
       return NextResponse.json({ error: 'sessionId and imageUrl required' }, { status: 400 });
     }
 
+    const isBack = coverType === 'back';
+    const data: any = isBack
+      ? {
+          backCoverImageUrl: imageUrl,
+          backCoverImagePrompt: prompt || null,
+          backCoverImageModel: model || null,
+        }
+      : {
+          coverImageUrl: imageUrl,
+          coverImagePrompt: prompt || null,
+          coverImageModel: model || null,
+        };
+    // Persist author / publishing details alongside the saved cover when provided.
+    if (authorName !== undefined) data.authorName = (authorName || '').toString().trim() || null;
+    if (publishingInfo !== undefined) data.publishingInfo = (publishingInfo || '').toString().trim() || null;
+
     const updated = await prisma.bookSession.update({
       where: { id: sessionId },
-      data: {
-        coverImageUrl: imageUrl,
-        coverImagePrompt: prompt || null,
-        coverImageModel: model || null,
-      },
+      data,
     });
 
-    // If this session belongs to a series, update the story bible's coverImages
-    if (updated.seriesId) {
+    // Only the FRONT cover feeds the series story bible's cover gallery.
+    if (!isBack && updated.seriesId) {
       try {
         const bible = await prisma.storyBible.findUnique({ where: { seriesId: updated.seriesId } });
         if (bible) {
@@ -98,20 +118,69 @@ export async function PATCH(req: NextRequest) {
   }
 }
 
-function buildCoverPrompt(title: string, genre: string, synopsis: string, chapterTitles: string): string {
-  return `Create a professional, visually striking book cover for:
+function buildCoverPrompt(
+  title: string,
+  genre: string,
+  synopsis: string,
+  chapterTitles: string,
+  author?: string,
+  publishing?: string,
+): string {
+  const authorLine = author
+    ? `- Render the author name "${author}" clearly and legibly at the BOTTOM of the cover`
+    : `- Author name area at bottom`;
+  const publishingLine = publishing
+    ? `- Include the publishing information "${publishing}" in small, tasteful text near the bottom edge`
+    : '';
+  return `Create a professional, visually striking FRONT book cover for:
 
 Title: "${title}"
 Genre: ${genre}
 Synopsis: ${synopsis.slice(0, 500)}
 ${chapterTitles ? `Key chapters: ${chapterTitles.slice(0, 200)}` : ''}
+${author ? `Author: ${author}` : ''}
+${publishing ? `Publisher: ${publishing}` : ''}
 
 Requirements:
 - Professional book cover design suitable for publication
 - Genre-appropriate visual style and mood
-- Bold, legible title text "${title}" prominently displayed
-- Author name area at bottom
+- Bold, legible title text "${title}" prominently displayed at the top or center
+${authorLine}
+${publishingLine}
 - Eye-catching composition that would appeal on bookstore shelves and online thumbnails
 - Rich colors and dramatic lighting appropriate for ${genre}
-- No placeholder text except the title`;
+- Spell all text exactly as written, with correct spelling and clean typography
+- No placeholder text, no lorem ipsum`;
+}
+
+function buildBackCoverPrompt(
+  title: string,
+  genre: string,
+  blurb: string,
+  author?: string,
+  publishing?: string,
+): string {
+  const authorLine = author
+    ? `- Include a short author credit line "${author}" near the bottom`
+    : '';
+  const publishingLine = publishing
+    ? `- Include the publishing information "${publishing}" in small print at the bottom`
+    : '';
+  return `Create a professional BACK book cover that visually matches the front cover for:
+
+Title: "${title}"
+Genre: ${genre}
+Back-cover blurb to feature: ${blurb.slice(0, 600)}
+${author ? `Author: ${author}` : ''}
+${publishing ? `Publisher: ${publishing}` : ''}
+
+Requirements:
+- Back-cover layout: genre-appropriate background and mood consistent with a matching front cover
+- A clear, readable text panel presenting the blurb above (concise, well laid out, legible body text)
+${authorLine}
+${publishingLine}
+- Reserve a small blank rectangle in the bottom-right corner as a placeholder for a barcode/ISBN
+- Portrait book-cover proportions, print-ready composition
+- Spell all text exactly as written, with correct spelling and clean typography
+- No placeholder text, no lorem ipsum`;
 }

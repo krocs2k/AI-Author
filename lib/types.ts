@@ -203,6 +203,13 @@ export interface BookSession {
   coverImageUrl?: string;
   coverImagePrompt?: string;
   coverImageModel?: string;
+  // Author & publishing (printed on cover)
+  authorName?: string;
+  publishingInfo?: string;
+  // Back cover art fields
+  backCoverImageUrl?: string;
+  backCoverImagePrompt?: string;
+  backCoverImageModel?: string;
   // Series fields
   seriesId?: string | null;
   seriesOrder?: number | null;

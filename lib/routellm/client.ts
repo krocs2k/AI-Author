@@ -322,6 +322,25 @@ export class RouteLLMClient {
 
       if (response.ok) {
         data = await response.json();
+        // Reasoning models (gpt-5 / o-series) can spend the entire completion
+        // budget on internal reasoning tokens and return EMPTY content with
+        // finish_reason === 'length'. When that happens, retry with a much
+        // larger token budget instead of failing with "Empty response".
+        const candidate = data.choices?.[0];
+        const emptyContent = !((candidate?.message?.content || '').trim());
+        const finishReason = candidate?.finish_reason;
+        if (emptyContent && finishReason === 'length') {
+          const currentMax = requestBody.max_completion_tokens ?? requestBody.max_tokens ?? 4000;
+          if (currentMax < 16000) {
+            const bumped = Math.max(currentMax * 4, 16000);
+            if ('max_completion_tokens' in requestBody) {
+              requestBody.max_completion_tokens = bumped;
+            } else {
+              requestBody.max_tokens = bumped;
+            }
+            continue;
+          }
+        }
         break;
       }
 

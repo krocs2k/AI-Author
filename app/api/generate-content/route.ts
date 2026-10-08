@@ -85,7 +85,10 @@ async function generateStageContent(
       'content-creation',
       {
         temperature: 0.7,
-        maxTokens: 1200 // Reduced tokens for faster response within timeout
+        // Must be generous: reasoning models (gpt-5 / o-series) consume part of
+        // this budget on internal reasoning before emitting the ~750-word stage.
+        // Too small a value yields empty completions (finish_reason: length).
+        maxTokens: 4000
       }
     );
     
@@ -96,8 +99,10 @@ async function generateStageContent(
       timedOut: false
     };
   } catch (error: any) {
-    if (error.message?.includes('timeout') || error.message?.includes('524') || error.message?.includes('All routing attempts failed')) {
-      console.warn('Stage content generation timed out');
+    if (error.message?.includes('timeout') || error.message?.includes('524') || error.message?.includes('All routing attempts failed') || error.message?.includes('Empty response')) {
+      console.warn('Stage content generation failed softly:', error.message);
+      // Treat an empty/timed-out stage as a soft failure so the caller returns
+      // partial content (or a retriable 408) instead of a hard 500.
       return { content: '', model: 'timeout', provider: 'none', timedOut: true };
     }
     throw error;

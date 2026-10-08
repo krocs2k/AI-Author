@@ -176,6 +176,11 @@ export default function AIAuthorWizard() {
               coverImageUrl: data.coverImageUrl,
               coverImagePrompt: data.coverImagePrompt,
               coverImageModel: data.coverImageModel,
+              authorName: data.authorName,
+              publishingInfo: data.publishingInfo,
+              backCoverImageUrl: data.backCoverImageUrl,
+              backCoverImagePrompt: data.backCoverImagePrompt,
+              backCoverImageModel: data.backCoverImageModel,
               seriesId: data.seriesId,
               seriesOrder: data.seriesOrder,
               currentStep: data.currentStep,
@@ -1145,6 +1150,20 @@ export default function AIAuthorWizard() {
     }));
   };
 
+  const handleBackCoverSaved = (imageUrl: string, prompt: string, model: string) => {
+    setSession(prev => ({
+      ...prev,
+      backCoverImageUrl: imageUrl,
+      backCoverImagePrompt: prompt,
+      backCoverImageModel: model,
+    }));
+  };
+
+  const handleCoverDetailsChange = (authorName: string, publishingInfo: string) => {
+    setSession(prev => ({ ...prev, authorName, publishingInfo }));
+    updateSession({ authorName, publishingInfo });
+  };
+
   const handleCoverNext = () => {
     updateSession({ currentStep: 8 });
     setCurrentStep(8);
@@ -1510,10 +1529,17 @@ export default function AIAuthorWizard() {
             <CoverArt
               sessionId={sessionId}
               title={session.selectedTitle || session.customTitle}
+              authorName={session.authorName}
+              publishingInfo={session.publishingInfo}
               coverImageUrl={session.coverImageUrl}
               coverImagePrompt={session.coverImagePrompt}
               coverImageModel={session.coverImageModel}
+              backCoverImageUrl={session.backCoverImageUrl}
+              backCoverImagePrompt={session.backCoverImagePrompt}
+              backCoverImageModel={session.backCoverImageModel}
               onCoverSaved={handleCoverSaved}
+              onBackCoverSaved={handleBackCoverSaved}
+              onDetailsChange={handleCoverDetailsChange}
               onNext={handleCoverNext}
               isLoading={isLoading}
             />
