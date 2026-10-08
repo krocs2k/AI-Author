@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -479,7 +480,7 @@ export function CharacterGeneration({
         )}
         {isLoading?.characters && (
           <p className="text-sm text-amber-400">
-            Generating characters one at a time... This may take a couple of minutes
+            Generating characters... This may take 2-3 minutes
           </p>
         )}
         <div className="flex gap-3">
