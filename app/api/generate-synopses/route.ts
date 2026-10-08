@@ -64,9 +64,10 @@ Each synopsis should:
 - Follow successful patterns in the genre
 - Have a success probability of 88% or higher
 
-Format as JSON array with objects containing "id", "content", and "successProbability" (88-95). Respond with raw JSON only.`,
+Respond with a JSON object containing a "synopses" array, where each item has "id", "content", and "successProbability" (88-95). Respond with raw JSON only.`,
       'synopsis-generation',
       {
+        responseFormat: { type: 'json_object' },
         taskRequirements: {
           priority: 'speed',
           creativityLevel: 'high',
@@ -144,30 +145,34 @@ Format as JSON array with objects containing "id", "content", and "successProbab
   } catch (error) {
     console.error('Error generating synopses:', error);
     
-    // Check if it's a timeout error
+    // Never dead-end the user: on ANY provider/generation error, return fallback
+    // synopses (HTTP 200) so the wizard can proceed, while surfacing the real
+    // error detail for diagnosis instead of a hard 500.
     const errorMessage = error instanceof Error ? error.message : String(error);
     const isTimeout = errorMessage.includes('timeout') || 
                      errorMessage.includes('524') || 
                      errorMessage.includes('All routing attempts failed');
-    
-    if (isTimeout) {
-      console.log('Synopsis generation timed out, returning fallback synopses');
-      // Return fallback synopses on timeout
-      const fallbackSynopses = Array.from({ length: 8 }, (_, i) => ({
-        id: `synopsis-${i + 1}`,
-        content: `A captivating ${genre} story that combines classic elements of the genre with fresh perspectives. Features compelling characters navigating complex challenges, delivering both emotional depth and the exciting elements readers expect from ${genre} fiction.`,
-        successProbability: 88 + Math.floor(Math.random() * 7),
-        _routeLLM: {
-          modelUsed: 'fallback',
-          provider: 'fallback',
-          fallbackUsed: true,
-          fallbackReason: 'Synopsis generation timed out'
-        }
-      }));
-      
-      return NextResponse.json(fallbackSynopses);
-    }
-    
-    return NextResponse.json({ error: 'Failed to generate synopses' }, { status: 500 });
+
+    console.log(
+      isTimeout
+        ? 'Synopsis generation timed out, returning fallback synopses'
+        : `Synopsis generation failed (${errorMessage}), returning fallback synopses`
+    );
+
+    const fallbackSynopses = Array.from({ length: 8 }, (_, i) => ({
+      id: `synopsis-${i + 1}`,
+      content: `A captivating ${genre} story that combines classic elements of the genre with fresh perspectives. Features compelling characters navigating complex challenges, delivering both emotional depth and the exciting elements readers expect from ${genre} fiction.`,
+      successProbability: 88 + Math.floor(Math.random() * 7),
+      _routeLLM: {
+        modelUsed: 'fallback',
+        provider: 'fallback',
+        fallbackUsed: true,
+        fallbackReason: isTimeout
+          ? 'Synopsis generation timed out'
+          : `Synopsis generation error: ${errorMessage}`
+      }
+    }));
+
+    return NextResponse.json(fallbackSynopses);
   }
 }
