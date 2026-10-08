@@ -61,6 +61,7 @@ export interface LLMResponse {
     promptTokens: number;
     completionTokens: number;
     totalTokens: number;
+    cachedTokens?: number; // provider-reported cached (reused) prompt tokens
   };
   metadata?: {
     attemptNumber: number;

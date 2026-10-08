@@ -87,11 +87,17 @@ export async function logUsage(opts: {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
+  cachedTokens?: number;
   cacheHit: boolean;
   durationMs: number;
 }) {
   try {
-    const cost = opts.cacheHit ? 0 : calculateCost(opts.model, opts.promptTokens, opts.completionTokens);
+    const cachedTokens = opts.cachedTokens || 0;
+    // Full-response cache hit = no provider call = $0. Otherwise discount any
+    // provider-cached prefix tokens (the reused Novel System Bible prefix).
+    const cost = opts.cacheHit
+      ? 0
+      : calculateCost(opts.model, opts.promptTokens, opts.completionTokens, cachedTokens);
     await prisma.lLMUsageLog.create({
       data: {
         userId: opts.userId || null,
@@ -102,6 +108,7 @@ export async function logUsage(opts: {
         promptTokens: opts.promptTokens,
         completionTokens: opts.completionTokens,
         totalTokens: opts.totalTokens,
+        cachedTokens,
         estimatedCostUsd: cost,
         cacheHit: opts.cacheHit,
         durationMs: opts.durationMs,
@@ -112,10 +119,11 @@ export async function logUsage(opts: {
   }
 }
 
-export function normalizeUsage(rawUsage: any): { promptTokens: number; completionTokens: number; totalTokens: number } {
-  if (!rawUsage) return { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
+export function normalizeUsage(rawUsage: any): { promptTokens: number; completionTokens: number; totalTokens: number; cachedTokens: number } {
+  if (!rawUsage) return { promptTokens: 0, completionTokens: 0, totalTokens: 0, cachedTokens: 0 };
   const promptTokens = rawUsage.promptTokens ?? rawUsage.prompt_tokens ?? rawUsage.promptTokenCount ?? 0;
   const completionTokens = rawUsage.completionTokens ?? rawUsage.completion_tokens ?? rawUsage.candidatesTokenCount ?? 0;
   const totalTokens = rawUsage.totalTokens ?? rawUsage.total_tokens ?? rawUsage.totalTokenCount ?? (promptTokens + completionTokens);
-  return { promptTokens, completionTokens, totalTokens };
+  const cachedTokens = rawUsage.cachedTokens ?? rawUsage.prompt_tokens_details?.cached_tokens ?? rawUsage.cached_tokens ?? 0;
+  return { promptTokens, completionTokens, totalTokens, cachedTokens };
 }

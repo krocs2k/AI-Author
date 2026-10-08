@@ -100,6 +100,7 @@ model LLMUsageLog {
   promptTokens     Int      @default(0)
   completionTokens Int      @default(0)
   totalTokens      Int      @default(0)
+  cachedTokens     Int      @default(0)
   estimatedCostUsd Float    @default(0)
   cacheHit         Boolean  @default(false)
   durationMs       Int?

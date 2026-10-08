@@ -46,6 +46,7 @@ export async function GET(req: NextRequest) {
     select: {
       id: true, sessionId: true, taskType: true, provider: true, model: true,
       promptTokens: true, completionTokens: true, totalTokens: true,
+      cachedTokens: true,
       estimatedCostUsd: true, cacheHit: true, durationMs: true, createdAt: true,
     },
     orderBy: { createdAt: 'desc' },
@@ -124,6 +125,10 @@ export async function GET(req: NextRequest) {
   const totalCalls = logs.length;
   const totalCacheHits = logs.filter(l => l.cacheHit).length;
   const cacheHitRate = totalCalls > 0 ? totalCacheHits / totalCalls : 0;
+  // Provider-side prompt caching: reused prefix tokens (the Novel System Bible)
+  const totalCachedTokens = logs.reduce((s, l) => s + ((l as any).cachedTokens || 0), 0);
+  const totalPromptTokens = logs.reduce((s, l) => s + l.promptTokens, 0);
+  const prefixCacheRate = totalPromptTokens > 0 ? totalCachedTokens / totalPromptTokens : 0;
   const bookCount = sessions.length;
   const completedBooks = sessions.filter(s => (s.currentStep || 0) >= 5).length;
   const avgCostPerBook = bookCount > 0 ? totalCost / bookCount : 0;
@@ -154,6 +159,9 @@ export async function GET(req: NextRequest) {
       }
     }
   }
+  if (totalCachedTokens > 0) {
+    recommendations.push(`Prompt caching reused ${totalCachedTokens.toLocaleString()} prefix tokens (${(prefixCacheRate*100).toFixed(1)}% of all input tokens), largely the Creative Novel System Bible. These are billed at a steep discount, lowering input cost and latency across generations.`);
+  }
   if (cacheHitRate < 0.1 && totalCalls > 20) {
     recommendations.push(`Prompt cache hit rate is low (${(cacheHitRate*100).toFixed(1)}%). Standardizing system prompts and avoiding unnecessary variability will boost reuse and cut costs.`);
   } else if (cacheHitRate >= 0.3) {
@@ -183,6 +191,8 @@ export async function GET(req: NextRequest) {
       totalCalls,
       totalCacheHits,
       cacheHitRate,
+      totalCachedTokens,
+      prefixCacheRate,
     },
     perBook,
     perModel,

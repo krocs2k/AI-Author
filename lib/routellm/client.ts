@@ -1,4 +1,5 @@
 
+import crypto from 'crypto';
 import { LLMResponse, TaskType, TaskRequirements, RoutingDecision } from './types';
 import { routeLLMRouter } from './router';
 import { getActiveLLMConfig, isIdeaTask, isWritingTask } from './config-loader';
@@ -28,6 +29,24 @@ export interface ChatCompletionRequest {
   sessionId?: string | null;
   // Force-disable cache (for content unique per book)
   bypassCache?: boolean;
+}
+
+/**
+ * Build a stable prompt-cache key from the STABLE prefix of the request — i.e.
+ * the system prompt(s), which for novel writing begin with the large, unchanging
+ * Creative Novel System Bible block. Providers (OpenAI / Abacus RouteLLM) use this
+ * key to route requests that share the same prefix to the same cache node, so the
+ * already-processed bible tokens are reused across chapters/stages instead of being
+ * re-processed every call. Per-call variable text (chapter number, previous content)
+ * lives in the USER message and is intentionally excluded so the key stays stable.
+ */
+function buildPromptCacheKey(messages: ChatMessage[]): string | undefined {
+  const systemPrefix = messages
+    .filter(m => m.role === 'system')
+    .map(m => m.content)
+    .join('\n');
+  if (!systemPrefix.trim()) return undefined;
+  return 'novel-bible-' + crypto.createHash('sha256').update(systemPrefix).digest('hex').slice(0, 32);
 }
 
 export class RouteLLMClient {
@@ -289,6 +308,13 @@ export class RouteLLMClient {
       requestBody.response_format = request.responseFormat;
     }
 
+    // Prompt caching: stable key from the system prefix (Novel System Bible)
+    // so OpenAI reuses the processed prefix tokens across generation calls.
+    const openAiCacheKey = buildPromptCacheKey(request.messages);
+    if (openAiCacheKey) {
+      requestBody.prompt_cache_key = openAiCacheKey;
+    }
+
     // Newer OpenAI models (gpt-5 / o-series reasoning models) reject `max_tokens`
     // (they require `max_completion_tokens`) and/or a non-default `temperature`.
     // Retry while adapting the body to the exact parameter the API complains about,
@@ -380,6 +406,7 @@ export class RouteLLMClient {
         promptTokens: data.usage.prompt_tokens ?? 0,
         completionTokens: data.usage.completion_tokens ?? 0,
         totalTokens: data.usage.total_tokens ?? 0,
+        cachedTokens: data.usage.prompt_tokens_details?.cached_tokens ?? data.usage.cached_tokens ?? 0,
       } : undefined,
       metadata: {
         attemptNumber: 1,
@@ -420,6 +447,14 @@ export class RouteLLMClient {
     // Add response format if specified
     if (request.responseFormat) {
       requestBody.response_format = request.responseFormat;
+    }
+
+    // Prompt caching: route requests sharing the same stable system prefix
+    // (the Creative Novel System Bible) to the same cache so the processed
+    // bible tokens are reused instead of re-billed on every generation.
+    const promptCacheKey = buildPromptCacheKey(request.messages);
+    if (promptCacheKey) {
+      requestBody.prompt_cache_key = promptCacheKey;
     }
     
     // Make the API call with timeout (max 55 seconds per attempt)
@@ -470,6 +505,7 @@ export class RouteLLMClient {
         promptTokens: data.usage.prompt_tokens ?? data.usage.promptTokens ?? 0,
         completionTokens: data.usage.completion_tokens ?? data.usage.completionTokens ?? 0,
         totalTokens: data.usage.total_tokens ?? data.usage.totalTokens ?? 0,
+        cachedTokens: data.usage.prompt_tokens_details?.cached_tokens ?? data.usage.cached_tokens ?? 0,
       } : undefined,
       metadata: {
         attemptNumber: attempt,
@@ -537,6 +573,7 @@ export class RouteLLMClient {
         promptTokens: usage.promptTokens,
         completionTokens: usage.completionTokens,
         totalTokens: usage.totalTokens,
+        cachedTokens: usage.cachedTokens,
         cacheHit: false,
         durationMs: dur,
       }).catch(() => {});

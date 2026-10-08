@@ -175,9 +175,24 @@ export function getModelPricing(model: string): ModelPricing {
   return PRICING['default'];
 }
 
-export function calculateCost(model: string, promptTokens: number, completionTokens: number): number {
+// Cached (reused) input tokens are billed at a steep discount by providers that
+// support prompt caching (OpenAI charges ~10% of the normal input rate for them).
+export const CACHED_TOKEN_DISCOUNT = 0.1; // cached input tokens cost 10% of the input rate
+
+export function calculateCost(
+  model: string,
+  promptTokens: number,
+  completionTokens: number,
+  cachedTokens: number = 0,
+): number {
   const p = getModelPricing(model);
-  const cost = (promptTokens * p.input + completionTokens * p.output) / 1_000_000;
+  const cached = Math.min(Math.max(cachedTokens, 0), promptTokens);
+  const uncachedPrompt = promptTokens - cached;
+  const cost = (
+    uncachedPrompt * p.input +
+    cached * p.input * CACHED_TOKEN_DISCOUNT +
+    completionTokens * p.output
+  ) / 1_000_000;
   return Math.round(cost * 1_000_000) / 1_000_000;
 }
 
