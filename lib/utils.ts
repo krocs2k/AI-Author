@@ -52,6 +52,13 @@ export function truncateText(text: string, maxLength: number): string {
 // Basic file download function (for simple text files)
 export function downloadAsFile(content: string, filename: string, mimeType: string = 'text/plain') {
   const blob = new Blob([content], { type: mimeType });
+  downloadBlob(blob, filename);
+}
+
+// Trigger a download of a Blob using a native anchor element.
+// Avoids depending on file-saver, whose dynamic import can resolve to
+// `undefined` in the minified production bundle ("saveAs is not a function").
+export function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -184,8 +191,6 @@ export async function downloadBookAsDocx(
 ) {
   try {
     // Generate the DOCX on the server (reliable in production) and download the result.
-    const { saveAs } = await import('file-saver');
-
     const response = await fetch('/api/export/docx', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -205,7 +210,7 @@ export async function downloadBookAsDocx(
 
     const blob = await response.blob();
     const safeTitle = title.replace(/[^a-zA-Z0-9]/g, '_');
-    saveAs(blob, `${safeTitle}.docx`);
+    downloadBlob(blob, `${safeTitle}.docx`);
 
   } catch (error) {
     console.error('DOCX generation failed:', error);
@@ -280,8 +285,6 @@ export async function downloadContentAsDocx(
 ) {
   try {
     // Generate the DOCX on the server (reliable in production) and download the result.
-    const { saveAs } = await import('file-saver');
-
     const response = await fetch('/api/export/docx', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -298,7 +301,7 @@ export async function downloadContentAsDocx(
     }
 
     const blob = await response.blob();
-    saveAs(blob, `${filename}.docx`);
+    downloadBlob(blob, `${filename}.docx`);
 
   } catch (error) {
     console.error('DOCX generation failed:', error);
@@ -314,8 +317,6 @@ export async function downloadCharacterBibleAsDocx(
 ) {
   const safeTitle = title.replace(/[^a-zA-Z0-9]/g, '_');
   try {
-    const { saveAs } = await import('file-saver');
-
     const response = await fetch('/api/export/docx', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -331,7 +332,7 @@ export async function downloadCharacterBibleAsDocx(
     }
 
     const blob = await response.blob();
-    saveAs(blob, `${safeTitle}_Character_Bible.docx`);
+    downloadBlob(blob, `${safeTitle}_Character_Bible.docx`);
   } catch (error) {
     console.error('Character Bible DOCX generation failed:', error);
     // Fallback to a plain-text bible so the user still gets the content
@@ -378,8 +379,6 @@ export async function downloadLocationBibleAsDocx(
 ) {
   const safeTitle = title.replace(/[^a-zA-Z0-9]/g, '_');
   try {
-    const { saveAs } = await import('file-saver');
-
     const response = await fetch('/api/export/docx', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -395,7 +394,7 @@ export async function downloadLocationBibleAsDocx(
     }
 
     const blob = await response.blob();
-    saveAs(blob, `${safeTitle}_Location_Bible.docx`);
+    downloadBlob(blob, `${safeTitle}_Location_Bible.docx`);
   } catch (error) {
     console.error('Location Bible DOCX generation failed:', error);
     // Fallback to a plain-text bible so the user still gets the content
