@@ -10,18 +10,17 @@ const DEFAULT_IMAGE_MODEL = 'gpt-5.1';
 
 // Known image-capable models for Abacus.AI RouteLLM
 export const IMAGE_MODELS = [
-  { id: 'flux-2-pro', name: 'Flux 2 Pro', category: 'dedicated' },
-  { id: 'flux-kontext', name: 'Flux Kontext', category: 'dedicated' },
-  { id: 'seedream', name: 'Seedream', category: 'dedicated' },
-  { id: 'ideogram', name: 'Ideogram', category: 'dedicated' },
-  { id: 'recraft', name: 'Recraft', category: 'dedicated' },
-  { id: 'imagen', name: 'Imagen (Google)', category: 'dedicated' },
-  { id: 'nano-banana-pro', name: 'Nano Banana Pro', category: 'dedicated' },
-  { id: 'dall-e', name: 'DALL-E', category: 'dedicated' },
-  { id: 'gemini-3.1-pro', name: 'Gemini 3.1 Pro', category: 'gemini' },
-  { id: 'gemini-3.1-flash', name: 'Gemini 3.1 Flash', category: 'gemini' },
-  { id: 'gpt-5.4', name: 'GPT-5.4', category: 'openai' },
-  { id: 'gpt-5.1', name: 'GPT-5.1 (Default)', category: 'openai' },
+  { id: 'gpt-5.1', name: 'GPT-5.1 (Default)', category: 'default' },
+  { id: 'nano_banana_pro', name: 'Nano Banana Pro', category: 'image' },
+  { id: 'nano_banana2', name: 'Nano Banana 2', category: 'image' },
+  { id: 'gpt_image2', name: 'GPT Image 2', category: 'image' },
+  { id: 'flux2_pro', name: 'Flux 2 Pro', category: 'image' },
+  { id: 'flux_pro_ultra', name: 'Flux Pro Ultra', category: 'image' },
+  { id: 'seedream', name: 'Seedream', category: 'image' },
+  { id: 'ideogram', name: 'Ideogram', category: 'image' },
+  { id: 'recraft', name: 'Recraft', category: 'image' },
+  { id: 'dalle', name: 'DALL-E', category: 'image' },
+  { id: 'midjourney', name: 'Midjourney', category: 'image' },
 ];
 
 export async function generateImage(
@@ -48,26 +47,40 @@ export async function generateImage(
     },
   };
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 55000);
+  const send = async (payload: any): Promise<Response> => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 55000);
+    try {
+      return await fetch('https://apps.abacus.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+    } catch (e: any) {
+      if (e.name === 'AbortError') throw new Error('Image generation timed out');
+      throw e;
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
 
-  let response: Response;
-  try {
-    response = await fetch('https://apps.abacus.ai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-  } catch (e: any) {
-    clearTimeout(timeout);
-    if (e.name === 'AbortError') throw new Error('Image generation timed out');
-    throw e;
+  let response = await send(body);
+
+  // Some dedicated image models reject num_images or the '2:3' aspect format.
+  // Retry once with the model's own defaults so any listed model stays usable.
+  if (response.status === 400) {
+    const err = await response.text();
+    if (/aspect|image config|image_config|num_images/i.test(err)) {
+      const { image_config, ...plain } = body;
+      response = await send(plain);
+    } else {
+      throw new Error(`Image generation failed (400): ${err}`);
+    }
   }
-  clearTimeout(timeout);
 
   if (!response.ok) {
     const err = await response.text();

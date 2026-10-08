@@ -199,11 +199,13 @@ model LLMConfig {
   abacusModels        Json?    // Cached list of Abacus.AI models
   geminiModels        Json?    // Cached list of Gemini models
   openaiModels        Json?    // Cached list of OpenAI models
+  imageModels         Json?    // Cached list of Abacus.AI image-generation models
   
   // Last refresh timestamps
   abacusModelsRefreshedAt DateTime?
   geminiModelsRefreshedAt  DateTime?
   openaiModelsRefreshedAt  DateTime?
+  imageModelsRefreshedAt   DateTime?
   
   // Statistics reset tracking
   statsResetAt        DateTime? // When stats were last cleared — reports filter from this date

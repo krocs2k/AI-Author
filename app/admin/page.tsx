@@ -52,6 +52,8 @@ interface LLMConfigState {
   writingModel: string | null;
   imageModel: string | null;
   abacusModels: LLMModel[] | null;
+  imageModels?: LLMModel[] | null;
+  imageModelsRefreshedAt?: string | null;
   geminiModels: LLMModel[] | null;
   openaiModels: LLMModel[] | null;
   abacusModelsRefreshedAt: string | null;
@@ -105,6 +107,7 @@ export default function AdminPage() {
   const [refreshingAbacus, setRefreshingAbacus] = useState(false);
   const [refreshingGemini, setRefreshingGemini] = useState(false);
   const [refreshingOpenai, setRefreshingOpenai] = useState(false);
+  const [refreshingImage, setRefreshingImage] = useState(false);
   const [novelBible, setNovelBible] = useState('');
   const [novelBibleUpdatedAt, setNovelBibleUpdatedAt] = useState<string | null>(null);
   const [bibleSaving, setBibleSaving] = useState(false);
@@ -380,8 +383,8 @@ export default function AdminPage() {
     }
   };
 
-  const handleRefreshModels = async (provider: 'abacus' | 'openai' | 'gemini') => {
-    const setRefreshing = provider === 'abacus' ? setRefreshingAbacus : provider === 'openai' ? setRefreshingOpenai : setRefreshingGemini;
+  const handleRefreshModels = async (provider: 'abacus' | 'openai' | 'gemini' | 'image') => {
+    const setRefreshing = provider === 'abacus' ? setRefreshingAbacus : provider === 'openai' ? setRefreshingOpenai : provider === 'image' ? setRefreshingImage : setRefreshingGemini;
     setRefreshing(true);
     setLlmMessage('');
     try {
@@ -392,7 +395,7 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        setLlmMessage(`${provider === 'abacus' ? 'Abacus.AI' : provider === 'openai' ? 'OpenAI' : 'Gemini'} models refreshed! Found ${data.models?.length || 0} models.`);
+        setLlmMessage(`${provider === 'abacus' ? 'Abacus.AI' : provider === 'image' ? 'Image' : provider === 'openai' ? 'OpenAI' : 'Gemini'} models refreshed! Found ${data.models?.length || 0} models.`);
         await fetchLLMConfig();
       } else {
         setLlmMessage(data.error || 'Failed to refresh models');
@@ -1249,25 +1252,38 @@ export default function AdminPage() {
                           className="w-full bg-gray-700 border border-gray-600 text-white rounded-md px-3 py-2 text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
                         >
                           <option value="">Use default (gpt-5.1)</option>
-                          <optgroup label="Dedicated Image Models">
-                            <option value="flux-2-pro">Flux 2 Pro</option>
-                            <option value="flux-kontext">Flux Kontext</option>
-                            <option value="seedream">Seedream</option>
-                            <option value="ideogram">Ideogram</option>
-                            <option value="recraft">Recraft</option>
-                            <option value="imagen">Imagen (Google)</option>
-                            <option value="nano-banana-pro">Nano Banana Pro</option>
-                            <option value="dall-e">DALL-E</option>
-                          </optgroup>
-                          <optgroup label="Gemini (Image-capable)">
-                            <option value="gemini-3.1-pro">Gemini 3.1 Pro</option>
-                            <option value="gemini-3.1-flash">Gemini 3.1 Flash</option>
-                          </optgroup>
-                          <optgroup label="OpenAI (Image-capable)">
-                            <option value="gpt-5.4">GPT-5.4</option>
-                            <option value="gpt-5.1">GPT-5.1</option>
-                          </optgroup>
+                          {(() => {
+                            const list = (llmConfig.imageModels as LLMModel[] | null | undefined) || [];
+                            const ids = new Set(list.map((m) => m.id));
+                            return (
+                              <>
+                                {llmConfig.imageModel && !ids.has(llmConfig.imageModel) && (
+                                  <option value={llmConfig.imageModel}>{llmConfig.imageModel} (saved)</option>
+                                )}
+                                {list.map((m) => (
+                                  <option key={m.id} value={m.id}>{m.name || m.id}</option>
+                                ))}
+                              </>
+                            );
+                          })()}
                         </select>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-400">
+                            {llmConfig.imageModelsRefreshedAt
+                              ? `Last refreshed: ${new Date(llmConfig.imageModelsRefreshedAt).toLocaleString()} · ${((llmConfig.imageModels as LLMModel[] | null) || []).length} models`
+                              : 'Image models load automatically from Abacus.AI'}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleRefreshModels('image')}
+                            disabled={refreshingImage || !llmConfig.hasAbacusKey}
+                            className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                          >
+                            <RefreshCw className={`h-3 w-3 mr-1 ${refreshingImage ? 'animate-spin' : ''}`} />
+                            Refresh
+                          </Button>
+                        </div>
                         {llmConfig.imageModel && (
                           <p className="text-xs text-pink-400">
                             Currently using: {llmConfig.imageModel}

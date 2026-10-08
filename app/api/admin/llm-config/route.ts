@@ -74,6 +74,57 @@ const KNOWN_GEMINI_MODELS = [
   { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite', description: 'Fastest and most budget-friendly in 2.5 family', category: 'flash' },
 ];
 
+// Known Abacus.AI image-generation models (fallback if API fetch fails)
+const KNOWN_IMAGE_MODELS = [
+  { id: 'gpt-5.1', name: 'GPT-5.1 (Default)', description: 'Default image-capable model', category: 'default' },
+  { id: 'nano_banana_pro', name: 'Nano Banana Pro', description: 'Google Nano Banana Pro', category: 'image' },
+  { id: 'nano_banana2', name: 'Nano Banana 2', description: 'Google Nano Banana 2', category: 'image' },
+  { id: 'gpt_image2', name: 'GPT Image 2', description: 'OpenAI GPT Image 2', category: 'image' },
+  { id: 'flux2_pro', name: 'Flux 2 Pro', description: 'Black Forest Labs Flux 2 Pro', category: 'image' },
+  { id: 'flux_pro_ultra', name: 'Flux Pro Ultra', description: 'Black Forest Labs Flux Pro Ultra', category: 'image' },
+  { id: 'seedream', name: 'Seedream', description: 'ByteDance Seedream', category: 'image' },
+  { id: 'ideogram', name: 'Ideogram', description: 'Ideogram', category: 'image' },
+  { id: 'recraft', name: 'Recraft', description: 'Recraft', category: 'image' },
+  { id: 'dalle', name: 'DALL-E', description: 'OpenAI DALL-E', category: 'image' },
+  { id: 'midjourney', name: 'Midjourney', description: 'Midjourney', category: 'image' },
+];
+
+async function fetchAbacusImageModels(apiKey: string): Promise<any[]> {
+  try {
+    const response = await fetch('https://routellm.abacus.ai/v1/models', {
+      headers: { 'Authorization': `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!response.ok) throw new Error(`API returned ${response.status}`);
+    const data = await response.json();
+    const models = data.data || data.models || [];
+    const imageModels = models
+      .filter((m: any) => {
+        const id = String(m.id || m.model || '');
+        const out: string[] = m.output_modalities || [];
+        const inp: string[] = m.input_modalities || [];
+        const isImage = m.model_type === 'image_generation' || out.includes('image');
+        if (!isImage) return false;
+        if (out.length > 0 && !out.includes('image')) return false; // video/audio
+        if (inp.length > 0 && !inp.includes('text')) return false; // edit/upscale-only
+        if (/edit/i.test(id) || /\[edit\]/i.test(m.display_name || '')) return false;
+        return true;
+      })
+      .map((m: any) => ({
+        id: m.id || m.model,
+        name: m.display_name || m.id || m.model,
+        description: m.description || `${m.id} via Abacus.AI`,
+        category: m.model_type === 'image_generation' ? 'image' : 'multimodal',
+      }));
+    if (imageModels.length === 0) return KNOWN_IMAGE_MODELS;
+    if (!imageModels.some((m: any) => m.id === 'gpt-5.1')) imageModels.unshift(KNOWN_IMAGE_MODELS[0]);
+    return imageModels;
+  } catch (error) {
+    console.error('Error fetching Abacus image models:', error);
+    return KNOWN_IMAGE_MODELS;
+  }
+}
+
 async function fetchAbacusModels(apiKey: string): Promise<any[]> {
   try {
     const response = await fetch('https://routellm.abacus.ai/v1/models', {
@@ -173,7 +224,7 @@ async function fetchGeminiModels(apiKey: string): Promise<any[]> {
 
 // Auto-refresh cached provider model lists so admin options stay current
 const MODEL_LIST_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
-const FALLBACK_LISTS = new Set<any[]>([KNOWN_ABACUS_MODELS, KNOWN_OPENAI_MODELS, KNOWN_GEMINI_MODELS]);
+const FALLBACK_LISTS = new Set<any[]>([KNOWN_ABACUS_MODELS, KNOWN_OPENAI_MODELS, KNOWN_GEMINI_MODELS, KNOWN_IMAGE_MODELS]);
 
 function isStale(list: any, refreshedAt: Date | null | undefined): boolean {
   if (!Array.isArray(list) || list.length === 0 || !refreshedAt) return true;
@@ -203,6 +254,7 @@ async function autoRefreshModelLists<T extends Record<string, any>>(config: T): 
     );
   };
   queue(abacusKey, config.abacusModels, config.abacusModelsRefreshedAt, fetchAbacusModels, 'abacusModels');
+  queue(abacusKey, config.imageModels, config.imageModelsRefreshedAt, fetchAbacusImageModels, 'imageModels');
   queue(config.openaiApiKey || '', config.openaiModels, config.openaiModelsRefreshedAt, fetchOpenAIModels, 'openaiModels');
   queue(config.geminiApiKey || '', config.geminiModels, config.geminiModelsRefreshedAt, fetchGeminiModels, 'geminiModels');
   if (jobs.length === 0) return config;
@@ -338,6 +390,19 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true, models, refreshedAt: config.abacusModelsRefreshedAt });
       }
 
+      if (provider === 'image') {
+        const apiKey = config.abacusApiKey || process.env.ABACUSAI_API_KEY || '';
+        if (!apiKey) {
+          return NextResponse.json({ error: 'No Abacus.AI API key configured' }, { status: 400 });
+        }
+        const models = await fetchAbacusImageModels(apiKey);
+        config = await prisma.lLMConfig.update({
+          where: { id: config.id },
+          data: { imageModels: models as any, imageModelsRefreshedAt: new Date() },
+        });
+        return NextResponse.json({ success: true, models, refreshedAt: config.imageModelsRefreshedAt });
+      }
+
       if (provider === 'openai') {
         const apiKey = config.openaiApiKey || '';
         if (!apiKey) {
@@ -381,6 +446,8 @@ export async function POST(request: NextRequest) {
         updateData.abacusApiKey = null;
         updateData.abacusModels = null;
         updateData.abacusModelsRefreshedAt = null;
+        updateData.imageModels = null;
+        updateData.imageModelsRefreshedAt = null;
       } else if (provider === 'openai') {
         updateData.openaiApiKey = null;
         updateData.openaiModels = null;
