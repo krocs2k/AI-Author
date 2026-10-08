@@ -11,6 +11,19 @@ import { BookMetrics } from '@/lib/types';
 import { Image, FileText, Copy, Download, Sparkles } from 'lucide-react';
 import { formatReadTime, formatNumber, downloadAsFile } from '@/lib/utils';
 
+// Defensive: a cover prompt may arrive as an object ({ title, prompt }) from older
+// saved sessions. Coerce to a string so React never renders a raw object (error #31).
+const asText = (item: any): string => {
+  if (typeof item === 'string') return item;
+  if (item && typeof item === 'object') {
+    const t = item.title || item.name || '';
+    const p = item.prompt || item.description || item.text || '';
+    if (t && p) return `${t}: ${p}`;
+    return p || t || JSON.stringify(item);
+  }
+  return String(item ?? '');
+};
+
 interface MarketingFinalizationProps {
   title?: string;
   metrics?: BookMetrics;
@@ -139,7 +152,7 @@ export function MarketingFinalization({
                   <div>
                     <h4 className="font-semibold text-gray-200 mb-4">Front Cover Prompts</h4>
                     <div className="space-y-3">
-                      {coverPrompts.front?.map((prompt, index) => (
+                      {coverPrompts.front?.map((rawPrompt, index) => { const prompt = asText(rawPrompt); return (
                         <Card key={`front-${index}`} className="border-gray-700">
                           <CardContent className="p-4">
                             <div className="flex justify-between items-start mb-2">
@@ -159,14 +172,14 @@ export function MarketingFinalization({
                             <p className="text-gray-300 text-sm">{prompt}</p>
                           </CardContent>
                         </Card>
-                      ))}
+                      ); })}
                     </div>
                   </div>
 
                   <div>
                     <h4 className="font-semibold text-gray-200 mb-4">Back Cover Prompts</h4>
                     <div className="space-y-3">
-                      {coverPrompts.back?.map((prompt, index) => (
+                      {coverPrompts.back?.map((rawPrompt, index) => { const prompt = asText(rawPrompt); return (
                         <Card key={`back-${index}`} className="border-gray-700">
                           <CardContent className="p-4">
                             <div className="flex justify-between items-start mb-2">
@@ -186,7 +199,7 @@ export function MarketingFinalization({
                             <p className="text-gray-300 text-sm">{prompt}</p>
                           </CardContent>
                         </Card>
-                      ))}
+                      ); })}
                     </div>
                   </div>
                 </div>

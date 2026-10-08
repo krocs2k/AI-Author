@@ -33,6 +33,22 @@ const WIZARD_STEPS: WizardStep[] = [
   { id: 8, title: 'Marketing', description: 'Create marketing assets', completed: false },
 ];
 
+// Cover prompt entries may come back from the model as objects ({ title, prompt })
+// instead of plain strings. Coerce every entry to a string so React never tries to
+// render a raw object (React error #31).
+const coverPromptToString = (item: any): string => {
+  if (typeof item === 'string') return item;
+  if (item && typeof item === 'object') {
+    const t = item.title || item.name || '';
+    const p = item.prompt || item.description || item.text || '';
+    if (t && p) return `${t}: ${p}`;
+    return p || t || JSON.stringify(item);
+  }
+  return String(item ?? '');
+};
+const normalizeCoverList = (arr: any): string[] =>
+  Array.isArray(arr) ? arr.map(coverPromptToString) : [];
+
 export default function AIAuthorWizard() {
   const { data: userSession } = useSession() || {};
   const router = useRouter();
@@ -143,8 +159,8 @@ export default function AIAuthorWizard() {
               chapters: data.chapters || [],
               coverPrompts: data.coverPrompts
                 ? {
-                    front: data.coverPrompts.front || data.coverPrompts.frontCovers || [],
-                    back: data.coverPrompts.back || data.coverPrompts.backCovers || [],
+                    front: normalizeCoverList(data.coverPrompts.front || data.coverPrompts.frontCovers),
+                    back: normalizeCoverList(data.coverPrompts.back || data.coverPrompts.backCovers),
                   }
                 : undefined,
               salesCopy: data.salesCopy,
@@ -1113,8 +1129,8 @@ export default function AIAuthorWizard() {
       const data = await response.json();
       // The API returns { frontCovers, backCovers }, but the UI/type expects { front, back }.
       const normalized = {
-        front: data.front || data.frontCovers || [],
-        back: data.back || data.backCovers || [],
+        front: normalizeCoverList(data.front || data.frontCovers),
+        back: normalizeCoverList(data.back || data.backCovers),
       };
       await updateSession({ coverPrompts: normalized });
       
