@@ -69,6 +69,19 @@ export async function generateImage(
   };
 
   let response = await send(body);
+  let usedModel = model;
+
+  // A saved model id that Abacus.AI no longer recognises (e.g. an old list entry)
+  // must not break cover generation: fall back to the default image model.
+  if (response.status === 400 && model !== DEFAULT_IMAGE_MODEL) {
+    const err = await response.clone().text();
+    if (/invalid model/i.test(err)) {
+      console.warn(`Image model '${model}' rejected; falling back to ${DEFAULT_IMAGE_MODEL}`);
+      usedModel = DEFAULT_IMAGE_MODEL;
+      body.model = DEFAULT_IMAGE_MODEL;
+      response = await send(body);
+    }
+  }
 
   // Some dedicated image models reject num_images or the '2:3' aspect format.
   // Retry once with the model's own defaults so any listed model stays usable.
@@ -94,7 +107,7 @@ export async function generateImage(
     const images = choice.message?.images || [];
     for (const img of images) {
       const url = img?.image_url?.url || img?.url || (typeof img === 'string' ? img : null);
-      if (url) results.push({ imageUrl: url, model, prompt });
+      if (url) results.push({ imageUrl: url, model: usedModel, prompt });
     }
   }
 
