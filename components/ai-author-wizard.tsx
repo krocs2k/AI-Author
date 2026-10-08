@@ -19,7 +19,7 @@ import { AnimatedProgress, PROGRESS_CONFIGS, ProgressStep } from './ui/animated-
 import { calculateReadTime, generateHumanizationScore, generateSuccessProbability, simulateAnalysisDelay, downloadAsFile, downloadBookAsPDF, downloadBookAsDocx, downloadBookAsText, downloadCharacterBibleAsDocx, downloadLocationBibleAsDocx } from '@/lib/utils';
 import { BOOK_GENRES } from '@/lib/genres';
 import { Button } from './ui/button';
-import { BookOpen, LogOut, Shield, User, RotateCcw, FolderOpen, Save } from 'lucide-react';
+import { BookOpen, LogOut, Shield, User, RotateCcw, FolderOpen, Save, Check, Loader2, CloudOff } from 'lucide-react';
 import { SaveBookDialog } from '@/components/wizard/save-book-dialog';
 
 const WIZARD_STEPS: WizardStep[] = [
@@ -60,6 +60,7 @@ export default function AIAuthorWizard() {
   const [session, setSession] = useState<Partial<BookSession>>({});
   const [isLoading, setIsLoading] = useState<{ [key: string]: boolean }>({});
   const [storyBibleContext, setStoryBibleContext] = useState<any>(null);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   
   // Animated progress state
   const [progressConfig, setProgressConfig] = useState<{
@@ -125,18 +126,20 @@ export default function AIAuthorWizard() {
 
   const searchParams = useSearchParams();
 
-  // Initialize session — load existing if ?sessionId= in URL, else create new
-  useEffect(() => {
-    const existingId = searchParams?.get('sessionId') || null;
-    const initSession = async () => {
-      try {
-        if (existingId) {
-          const res = await fetch(`/api/session?sessionId=${existingId}`);
-          if (res.ok) {
-            const data = await res.json();
-            setSessionId(data.id);
-            // Restore wizard state
-            const restored: any = {
+  // Key under which we remember the user's active in-progress book so a page
+  // reload after a crash / lost connection resumes exactly where they left off.
+  const ACTIVE_SESSION_KEY = 'aiAuthorActiveSession';
+
+  const rememberActiveSession = useCallback((id: string) => {
+    if (!id) return;
+    try { window.localStorage.setItem(ACTIVE_SESSION_KEY, id); } catch {}
+  }, []);
+
+  // Apply a fetched session record to the wizard state (first load and resume).
+  const applySessionData = useCallback(async (data: any) => {
+    setSessionId(data.id);
+    rememberActiveSession(data.id);
+    const restored: any = {
               id: data.id,
               name: data.name,
               folderId: data.folderId,
@@ -177,27 +180,54 @@ export default function AIAuthorWizard() {
               currentStep: data.currentStep,
               completedSteps: data.completedSteps,
             };
-            setSession(restored);
-            setCurrentStep(data.currentStep || 1);
+    setSession(restored);
+    setCurrentStep(data.currentStep || 1);
 
-            // Load Story Bible if this book belongs to a series
-            if (data.seriesId) {
-              try {
-                const bibleRes = await fetch(`/api/series/${data.seriesId}/bible`);
-                if (bibleRes.ok) {
-                  const bibleData = await bibleRes.json();
-                  setStoryBibleContext(bibleData.bible);
-                }
-              } catch (e) {
-                console.warn('Failed to load story bible context:', e);
-              }
-            }
-            return;
-          }
+    // Load Story Bible if this book belongs to a series
+    if (data.seriesId) {
+      try {
+        const bibleRes = await fetch(`/api/series/${data.seriesId}/bible`);
+        if (bibleRes.ok) {
+          const bibleData = await bibleRes.json();
+          setStoryBibleContext(bibleData.bible);
         }
-        const response = await fetch('/api/session', { method: 'POST' });
-        const data = await response.json();
-        setSessionId(data.sessionId);
+      } catch (e) {
+        console.warn('Failed to load story bible context:', e);
+      }
+    }
+  }, [rememberActiveSession]);
+
+  const createNewSession = useCallback(async () => {
+    const response = await fetch('/api/session', { method: 'POST' });
+    const data = await response.json();
+    setSessionId(data.sessionId);
+    rememberActiveSession(data.sessionId);
+  }, [rememberActiveSession]);
+
+  // Initialize session:
+  //   ?sessionId=XYZ -> open that specific book
+  //   ?new=1         -> always start a fresh book
+  //   (bare url)     -> resume the last active book (autosave recovery), else start fresh
+  useEffect(() => {
+    const existingId = searchParams?.get('sessionId') || null;
+    const forceNew = searchParams?.get('new') === '1';
+    const initSession = async () => {
+      try {
+        const tryLoad = async (id: string) => {
+          const res = await fetch(`/api/session?sessionId=${id}`);
+          if (!res.ok) return false;
+          const data = await res.json();
+          await applySessionData(data);
+          return true;
+        };
+        if (existingId) {
+          if (await tryLoad(existingId)) return;
+        } else if (!forceNew) {
+          let stored: string | null = null;
+          try { stored = window.localStorage.getItem(ACTIVE_SESSION_KEY); } catch {}
+          if (stored && (await tryLoad(stored))) return;
+        }
+        await createNewSession();
       } catch (error) {
         console.error('Failed to initialize session:', error);
       }
@@ -212,14 +242,16 @@ export default function AIAuthorWizard() {
     try {
       const updatedSession = { ...session, ...updates };
       setSession(updatedSession);
-      
-      await fetch('/api/session', {
+      setSaveStatus('saving');
+      const res = await fetch('/api/session', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId, ...updates }),
       });
+      setSaveStatus(res.ok ? 'saved' : 'error');
     } catch (error) {
       console.error('Failed to update session:', error);
+      setSaveStatus('error');
     }
   };
 
@@ -228,9 +260,11 @@ export default function AIAuthorWizard() {
       const response = await fetch('/api/session', { method: 'POST' });
       const data = await response.json();
       setSessionId(data.sessionId);
+      rememberActiveSession(data.sessionId);
       setSession({});
       setCurrentStep(1);
       setIsLoading({});
+      setSaveStatus('idle');
     } catch (error) {
       console.error('Failed to start new session:', error);
     }
@@ -340,6 +374,7 @@ export default function AIAuthorWizard() {
       
       // Then persist to backend
       if (sessionId) {
+        setSaveStatus('saving');
         fetch('/api/session', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -349,7 +384,9 @@ export default function AIAuthorWizard() {
             authorAnalysis: analysis.secretSauce,
             currentStep: 2,
           }),
-        }).catch(err => console.error('Session sync error:', err));
+        })
+          .then(res => setSaveStatus(res.ok ? 'saved' : 'error'))
+          .catch(err => { console.error('Session sync error:', err); setSaveStatus('error'); });
       }
       
       completeProgress();
@@ -1034,11 +1071,14 @@ export default function AIAuthorWizard() {
         
         // Fire and forget the API update (chapter is already saved in database by generate-content)
         if (sessionId) {
+          setSaveStatus('saving');
           fetch('/api/session', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ sessionId }),
-          }).catch(err => console.error('Session sync error:', err));
+          })
+            .then(res => setSaveStatus(res.ok ? 'saved' : 'error'))
+            .catch(err => { console.error('Session sync error:', err); setSaveStatus('error'); });
         }
         
         return updatedSession;
@@ -1299,6 +1339,22 @@ export default function AIAuthorWizard() {
                   Admin
                 </Button>
               </Link>
+            )}
+            {sessionId && saveStatus !== 'idle' && (
+              <div
+                className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-md ${
+                  saveStatus === 'error'
+                    ? 'text-red-300 bg-red-500/10'
+                    : saveStatus === 'saving'
+                    ? 'text-gray-400'
+                    : 'text-teal-300'
+                }`}
+                title="Your book autosaves after every step. Reopen the wizard to resume where you left off."
+              >
+                {saveStatus === 'saving' && <><Loader2 className="h-3.5 w-3.5 animate-spin" />Saving…</>}
+                {saveStatus === 'saved' && <><Check className="h-3.5 w-3.5" />All changes saved</>}
+                {saveStatus === 'error' && <><CloudOff className="h-3.5 w-3.5" />Save failed — retrying</>}
+              </div>
             )}
             <Link href="/library">
               <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">

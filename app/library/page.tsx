@@ -272,7 +272,7 @@ export default function LibraryPage() {
           </div>
           <div className="flex items-center gap-2">
             <Link href="/dashboard"><Button variant="ghost" size="sm" className="text-gray-400 hover:text-white"><ArrowLeft className="h-4 w-4 mr-2" />Back to Wizard</Button></Link>
-            <Link href="/dashboard"><Button size="sm" className="bg-teal-500 hover:bg-teal-600"><Plus className="h-4 w-4 mr-2" />New Book</Button></Link>
+            <Link href="/dashboard?new=1"><Button size="sm" className="bg-teal-500 hover:bg-teal-600"><Plus className="h-4 w-4 mr-2" />New Book</Button></Link>
           </div>
         </div>
       </header>
@@ -367,7 +367,7 @@ export default function LibraryPage() {
             <Card className="bg-gray-800/50 border-gray-700">
               <CardContent className="py-12 text-center text-gray-400">
                 No saved books in this folder yet.
-                <div className="mt-4"><Link href="/dashboard"><Button className="bg-teal-500 hover:bg-teal-600"><Plus className="h-4 w-4 mr-2" />Start a New Book</Button></Link></div>
+                <div className="mt-4"><Link href="/dashboard?new=1"><Button className="bg-teal-500 hover:bg-teal-600"><Plus className="h-4 w-4 mr-2" />Start a New Book</Button></Link></div>
               </CardContent>
             </Card>
           ) : (
