@@ -3,6 +3,72 @@ import { Genre } from './types';
 
 export const BOOK_GENRES: Genre[] = [
   {
+    id: 'epic-fantasy',
+    name: 'Epic Fantasy',
+    description: 'Sweeping high-fantasy sagas and grand quests',
+    icon: 'Castle'
+  },
+  {
+    id: 'urban-fantasy',
+    name: 'Urban Fantasy',
+    description: 'Magic and the supernatural in modern settings',
+    icon: 'Building2'
+  },
+  {
+    id: 'grimdark-fantasy',
+    name: 'Grimdark Fantasy',
+    description: 'Morally gray, brutal, low-hope fantasy',
+    icon: 'Skull'
+  },
+  {
+    id: 'romantasy',
+    name: 'Romantasy',
+    description: 'Romance woven through fantasy worlds',
+    icon: 'Sparkles'
+  },
+  {
+    id: 'contemporary-romance',
+    name: 'Contemporary Romance',
+    description: 'Modern-day love stories and relationships',
+    icon: 'Heart'
+  },
+  {
+    id: 'sci-fi-romance',
+    name: 'Sci-Fi Romance',
+    description: 'Love stories set against science-fiction backdrops',
+    icon: 'Rocket'
+  },
+  {
+    id: 'cozy-mystery',
+    name: 'Cozy Mystery',
+    description: 'Low-stakes, charming amateur-sleuth mysteries',
+    icon: 'Coffee'
+  },
+  {
+    id: 'domestic-thriller',
+    name: 'Domestic Thriller',
+    description: 'Suspense rooted in homes, families, and secrets',
+    icon: 'Home'
+  },
+  {
+    id: 'legal-thriller',
+    name: 'Legal Thriller',
+    description: 'Courtroom drama and high-stakes legal intrigue',
+    icon: 'Gavel'
+  },
+  {
+    id: 'upmarket-book-club',
+    name: 'Upmarket/Book Club',
+    description: 'Character-driven fiction with discussion-worthy themes',
+    icon: 'Users'
+  },
+  {
+    id: 'middle-grade',
+    name: 'Middle Grade',
+    description: 'Stories for readers aged roughly 8-12',
+    icon: 'Backpack'
+  },
+  {
     id: 'action',
     name: 'Action',
     description: 'Fast-paced sequences and high-octane conflict',
@@ -34,7 +100,7 @@ export const BOOK_GENRES: Genre[] = [
   },
   {
     id: 'biography',
-    name: 'Biography',
+    name: 'Biography (Biographical Novel)',
     description: 'Life stories of real people',
     icon: 'User'
   },
@@ -58,7 +124,7 @@ export const BOOK_GENRES: Genre[] = [
   },
   {
     id: 'comedy',
-    name: 'Comedy',
+    name: 'Comedic/Satirical',
     description: 'Humorous and lighthearted stories',
     icon: 'Smile'
   },
@@ -118,7 +184,7 @@ export const BOOK_GENRES: Genre[] = [
   },
   {
     id: 'espionage',
-    name: 'Espionage',
+    name: 'Spy/Espionage',
     description: 'Spies, secrets, and covert operations',
     icon: 'Fingerprint'
   },
@@ -256,7 +322,7 @@ export const BOOK_GENRES: Genre[] = [
   },
   {
     id: 'mystery',
-    name: 'Mystery',
+    name: 'Mystery/Crime',
     description: 'Suspenseful crime and detective stories',
     icon: 'Search'
   },
@@ -292,7 +358,7 @@ export const BOOK_GENRES: Genre[] = [
   },
   {
     id: 'psychological',
-    name: 'Psychological',
+    name: 'Psychological Suspense',
     description: 'Mind games, tension, and inner turmoil',
     icon: 'Brain'
   },
@@ -322,7 +388,7 @@ export const BOOK_GENRES: Genre[] = [
   },
   {
     id: 'self-help',
-    name: 'Self-Help',
+    name: 'Self-Help (Narrative)',
     description: 'Personal development and improvement',
     icon: 'TrendingUp'
   },
@@ -346,7 +412,7 @@ export const BOOK_GENRES: Genre[] = [
   },
   {
     id: 'supernatural',
-    name: 'Supernatural',
+    name: 'Supernatural Horror',
     description: 'Forces beyond the natural world',
     icon: 'Moon'
   },
