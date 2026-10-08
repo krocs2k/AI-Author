@@ -250,6 +250,9 @@ model BookSession {
   selectedGenres    Json?    // Array of selected genre ids (hybrid genre support)
   genreAnalysis     Json?    // MojoSauce analysis
   authorAnalysis    Json?    // SecretSauce analysis
+
+  // Trope Selection
+  selectedTrope     Json?    // Selected trope object {id, name, description, popularity}
   
   // Synopsis Generation
   customTopic       String?

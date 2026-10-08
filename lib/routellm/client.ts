@@ -281,7 +281,7 @@ export class RouteLLMClient {
     const requestBody: any = {
       model: modelId,
       messages: request.messages,
-      temperature: request.temperature || 0.7,
+      temperature: request.temperature ?? 0.7,
       max_tokens: request.maxTokens || 4000,
     };
 
@@ -289,37 +289,64 @@ export class RouteLLMClient {
       requestBody.response_format = request.responseFormat;
     }
 
-    const controller = new AbortController();
-    const timeoutMs = 55000;
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    // Newer OpenAI models (gpt-5 / o-series reasoning models) reject `max_tokens`
+    // (they require `max_completion_tokens`) and/or a non-default `temperature`.
+    // Retry while adapting the body to the exact parameter the API complains about,
+    // so both legacy and newer models are supported without a hardcoded model list.
+    let data: any;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const controller = new AbortController();
+      const timeoutMs = 55000;
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-    let response: Response;
-    try {
-      response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify(requestBody),
-        signal: controller.signal,
-      });
-    } catch (fetchError: any) {
-      clearTimeout(timeoutId);
-      if (fetchError.name === 'AbortError') {
-        throw new Error(`OpenAI request timed out after ${timeoutMs / 1000} seconds`);
+      let response: Response;
+      try {
+        response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify(requestBody),
+          signal: controller.signal,
+        });
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          throw new Error(`OpenAI request timed out after ${timeoutMs / 1000} seconds`);
+        }
+        throw fetchError;
       }
-      throw fetchError;
-    }
 
-    clearTimeout(timeoutId);
+      clearTimeout(timeoutId);
 
-    if (!response.ok) {
+      if (response.ok) {
+        data = await response.json();
+        break;
+      }
+
       const errorText = await response.text();
+      const lower = errorText.toLowerCase();
+      let adapted = false;
+      // `max_tokens` unsupported -> switch to `max_completion_tokens`
+      if ('max_tokens' in requestBody && lower.includes('max_completion_tokens')) {
+        requestBody.max_completion_tokens = requestBody.max_tokens;
+        delete requestBody.max_tokens;
+        adapted = true;
+      }
+      // non-default `temperature` unsupported -> drop it (model forces default)
+      if ('temperature' in requestBody && lower.includes('temperature')) {
+        delete requestBody.temperature;
+        adapted = true;
+      }
+      if (adapted) continue;
       throw new Error(`OpenAI API request failed (${response.status}): ${errorText}`);
     }
 
-    const data = await response.json();
+    if (!data) {
+      throw new Error('OpenAI API request failed: no response after parameter adaptation');
+    }
+
     const content = data.choices?.[0]?.message?.content || '';
 
     if (!content.trim()) {
