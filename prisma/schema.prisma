@@ -282,6 +282,9 @@ model BookSession {
   // Progress Tracking
   currentStep       Int      @default(1)
   completedSteps    Json?    // Array of completed step numbers
+
+  // Characters (persisted for series/sequel continuity)
+  characters        Json?    // Array of Character objects for this book
 }
 
 model Chapter {

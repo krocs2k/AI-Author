@@ -357,6 +357,9 @@ export function CharacterGeneration({
                               {ROLE_ICONS[character.role]}
                               <span className="ml-1">{ROLE_LABELS[character.role]}</span>
                             </Badge>
+                            {(character as any).returning && (
+                              <Badge className="bg-teal-500/20 text-teal-300 border border-teal-500/40 text-xs">Returning</Badge>
+                            )}
                             {character.age && (
                               <Badge variant="outline" className="text-xs">{character.age}</Badge>
                             )}

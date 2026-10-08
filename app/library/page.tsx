@@ -9,7 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { useToast } from '@/hooks/use-toast';
-import { BookOpen, Folder, FolderOpen, FolderPlus, ChevronRight, ChevronDown, Trash2, Edit2, MoveRight, ArrowLeft, Plus, Library, BookCopy, Sparkles } from 'lucide-react';
+import { BookOpen, Folder, FolderOpen, FolderPlus, ChevronRight, ChevronDown, Trash2, Edit2, MoveRight, ArrowLeft, Plus, Library, BookCopy, Sparkles, BookPlus, Loader2 } from 'lucide-react';
 
 interface FolderRow {
   id: string;
@@ -114,6 +114,7 @@ export default function LibraryPage() {
   const [showCreateSeries, setShowCreateSeries] = useState(false);
   const [renameTarget, setRenameTarget] = useState<{ kind: 'folder' | 'book'; id: string; value: string } | null>(null);
   const [moveTarget, setMoveTarget] = useState<{ id: string; kind: 'folder' | 'book' } | null>(null);
+  const [sequelLoadingId, setSequelLoadingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === 'unauthenticated') router.replace('/login');
@@ -211,6 +212,34 @@ export default function LibraryPage() {
     if (!confirm('Delete this book permanently? This cannot be undone.')) return;
     const res = await fetch(`/api/sessions?id=${id}`, { method: 'DELETE' });
     if (res.ok) { toast({ title: 'Deleted' }); loadAll(); } else toast({ title: 'Delete failed', variant: 'destructive' });
+  };
+
+  const startSequel = async (bookId: string) => {
+    setSequelLoadingId(bookId);
+    try {
+      const res = await fetch('/api/series/sequel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceBookId: bookId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.sessionId) {
+        toast({
+          title: 'Sequel created',
+          description: data.returningCharacterCount
+            ? `${data.returningCharacterCount} returning character(s) carried over.`
+            : 'New book started from your existing novel.',
+        });
+        if (data.bibleWarning) toast({ title: 'Heads up', description: data.bibleWarning });
+        router.push(`/dashboard?sessionId=${data.sessionId}`);
+      } else {
+        toast({ title: 'Could not create sequel', description: data.error || '', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Could not create sequel', variant: 'destructive' });
+    } finally {
+      setSequelLoadingId(null);
+    }
   };
 
   const createSeries = async () => {
@@ -388,6 +417,7 @@ export default function LibraryPage() {
                         <Link href={`/dashboard?sessionId=${b.id}`}>
                           <Button size="sm" className="bg-teal-500 hover:bg-teal-600">Open & Continue</Button>
                         </Link>
+                        <Button size="sm" variant="outline" className="border-teal-600/70 text-teal-300 hover:bg-teal-900/40" disabled={sequelLoadingId === b.id} onClick={() => startSequel(b.id)}>{sequelLoadingId === b.id ? (<><Loader2 className="h-3 w-3 mr-1 animate-spin" />Starting…</>) : (<><BookPlus className="h-3 w-3 mr-1" />Start Sequel</>)}</Button>
                         <Button size="sm" variant="outline" className="border-gray-600 text-gray-200 hover:bg-gray-700" onClick={() => setRenameTarget({ kind: 'book', id: b.id, value: b.name || title })}><Edit2 className="h-3 w-3 mr-1" />Rename</Button>
                         <Button size="sm" variant="outline" className="border-gray-600 text-gray-200 hover:bg-gray-700" onClick={() => setMoveTarget({ id: b.id, kind: 'book' })}><MoveRight className="h-3 w-3 mr-1" />Move</Button>
                         <Button size="sm" variant="outline" className="border-red-700 text-red-300 hover:bg-red-900/40" onClick={() => deleteBook(b.id)}><Trash2 className="h-3 w-3" /></Button>

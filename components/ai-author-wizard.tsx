@@ -160,6 +160,7 @@ export default function AIAuthorWizard() {
               forward: data.forward,
               forwardWordCount: data.forwardWordCount,
               chapters: data.chapters || [],
+              characters: data.characters || undefined,
               coverPrompts: data.coverPrompts
                 ? {
                     front: normalizeCoverList(data.coverPrompts.front || data.coverPrompts.frontCovers),
@@ -773,7 +774,9 @@ export default function AIAuthorWizard() {
       for (let i = 0; i < (cfg.supporting || 0); i++) roleQueue.push('supporting');
       for (let i = 0; i < (cfg.minor || 0); i++) roleQueue.push('minor');
 
-      const accumulated: Character[] = [];
+      // Preserve returning characters carried over from a previous book (sequel).
+      const returning: Character[] = (session.characters || []).filter((c: any) => c?.returning);
+      const accumulated: Character[] = [...returning];
       for (let i = 0; i < roleQueue.length; i++) {
         const role = roleQueue[i];
         advanceProgress(`Creating character ${i + 1} of ${roleQueue.length}...`);
@@ -810,6 +813,7 @@ export default function AIAuthorWizard() {
 
       console.log(`Generated ${accumulated.length} characters successfully`);
       setSession(prev => ({ ...prev, characters: accumulated }));
+      updateSession({ characters: accumulated });
       completeProgress();
       
     } catch (error) {
@@ -844,10 +848,12 @@ export default function AIAuthorWizard() {
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.character) {
+          const nextChars = [...(session.characters || []), data.character];
           setSession(prev => ({
             ...prev,
-            characters: [...(prev.characters || []), data.character]
+            characters: nextChars
           }));
+          updateSession({ characters: nextChars });
         }
       }
     } catch (error) {

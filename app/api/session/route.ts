@@ -88,7 +88,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Fields that exist in client types but not in database schema
-    const clientOnlyFields = ['selectedSynopsisId', 'selectedTitleId', 'chapters', 'characters', 'characterRecommendations', 'chapterRecommendations'];
+    const clientOnlyFields = ['selectedSynopsisId', 'selectedTitleId', 'chapters', 'characterRecommendations', 'chapterRecommendations'];
 
     // Filter out undefined/null values and client-only fields
     const cleanedData = Object.fromEntries(
