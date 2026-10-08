@@ -11,7 +11,15 @@ const prisma = new PrismaClient();
 // Known Abacus.AI text models (fallback if API fetch fails)
 const KNOWN_ABACUS_MODELS = [
   { id: 'route-llm', name: 'Route LLM (Auto)', description: 'Intelligently routes to the best available model based on request complexity', category: 'routing' },
-  { id: 'gpt-5.4', name: 'GPT-5.4', description: 'Latest OpenAI model via Abacus.AI', category: 'openai' },
+  { id: 'gpt-6.1-sol', name: 'GPT-6.1 Sol', description: 'OpenAI GPT-6.1 Sol via Abacus.AI', category: 'openai' },
+  { id: 'gpt-6-sol', name: 'GPT-6 Sol', description: 'OpenAI GPT-6 Sol via Abacus.AI', category: 'openai' },
+  { id: 'gpt-6-luna', name: 'GPT-6 Luna', description: 'OpenAI GPT-6 Luna via Abacus.AI', category: 'openai' },
+  { id: 'gpt-6-astra', name: 'GPT-6 Astra', description: 'OpenAI GPT-6 Astra via Abacus.AI', category: 'openai' },
+  { id: 'gpt-5.6-sol', name: 'GPT-5.6 Sol', description: 'OpenAI GPT-5.6 Sol via Abacus.AI', category: 'openai' },
+  { id: 'gpt-5.6-luna', name: 'GPT-5.6 Luna', description: 'OpenAI GPT-5.6 Luna via Abacus.AI', category: 'openai' },
+  { id: 'gpt-5.6-terra', name: 'GPT-5.6 Terra', description: 'OpenAI GPT-5.6 Terra via Abacus.AI', category: 'openai' },
+  { id: 'gpt-5.5', name: 'GPT-5.5', description: 'OpenAI GPT-5.5 via Abacus.AI', category: 'openai' },
+  { id: 'gpt-5.4', name: 'GPT-5.4', description: 'OpenAI GPT-5.4 via Abacus.AI', category: 'openai' },
   { id: 'gpt-5.4-mini', name: 'GPT-5.4 Mini', description: 'Compact version of GPT-5.4', category: 'openai' },
   { id: 'gpt-5.4-nano', name: 'GPT-5.4 Nano', description: 'Lightweight GPT-5.4 variant', category: 'openai' },
   { id: 'gpt-5.2', name: 'GPT-5.2', description: 'OpenAI GPT-5.2', category: 'openai' },
@@ -163,6 +171,51 @@ async function fetchGeminiModels(apiKey: string): Promise<any[]> {
   }
 }
 
+// Auto-refresh cached provider model lists so admin options stay current
+const MODEL_LIST_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+const FALLBACK_LISTS = new Set<any[]>([KNOWN_ABACUS_MODELS, KNOWN_OPENAI_MODELS, KNOWN_GEMINI_MODELS]);
+
+function isStale(list: any, refreshedAt: Date | null | undefined): boolean {
+  if (!Array.isArray(list) || list.length === 0 || !refreshedAt) return true;
+  return Date.now() - new Date(refreshedAt).getTime() > MODEL_LIST_TTL_MS;
+}
+
+async function autoRefreshModelLists<T extends Record<string, any>>(config: T): Promise<T> {
+  const data: any = {};
+  const jobs: Promise<void>[] = [];
+  const abacusKey = config.abacusApiKey || process.env.ABACUSAI_API_KEY || '';
+  const queue = (
+    key: string,
+    list: any,
+    at: any,
+    fetcher: (k: string) => Promise<any[]>,
+    field: string
+  ) => {
+    if (!key || !isStale(list, at)) return;
+    jobs.push(
+      fetcher(key).then((models) => {
+        // Only persist a live result; never overwrite a cached list with the static fallback
+        if (!FALLBACK_LISTS.has(models) || !Array.isArray(list) || list.length === 0) {
+          data[field] = models;
+          data[`${field}RefreshedAt`] = new Date();
+        }
+      }).catch((e) => console.error(`Auto-refresh ${field} failed:`, e))
+    );
+  };
+  queue(abacusKey, config.abacusModels, config.abacusModelsRefreshedAt, fetchAbacusModels, 'abacusModels');
+  queue(config.openaiApiKey || '', config.openaiModels, config.openaiModelsRefreshedAt, fetchOpenAIModels, 'openaiModels');
+  queue(config.geminiApiKey || '', config.geminiModels, config.geminiModelsRefreshedAt, fetchGeminiModels, 'geminiModels');
+  if (jobs.length === 0) return config;
+  await Promise.all(jobs);
+  if (Object.keys(data).length === 0) return config;
+  try {
+    return (await prisma.lLMConfig.update({ where: { id: config.id }, data })) as unknown as T;
+  } catch (e) {
+    console.error('Failed to persist refreshed model lists:', e);
+    return config;
+  }
+}
+
 // GET - Retrieve LLM config
 export async function GET() {
   try {
@@ -180,6 +233,8 @@ export async function GET() {
         },
       });
     }
+
+    config = await autoRefreshModelLists(config);
 
     // Mask API keys for client
     const masked = {
