@@ -1,7 +1,7 @@
 // Server-only EPUB 3 builder (reflowable, with EPUB 2 NCX fallback for older readers).
 import JSZip from 'jszip';
 import crypto from 'crypto';
-import { cleanExportText, cleanChapterContent, dedupeChapters } from '@/lib/export-clean';
+import { cleanExportText, cleanChapterContent, dedupeChapters, chapterHeading, chapterName } from '@/lib/export-clean';
 
 export interface EpubChapterInput {
   chapterNumber: number;
@@ -266,9 +266,9 @@ export async function buildEpub(input: EpubInput): Promise<Buffer> {
 
   for (const ch of chapters) {
     const n = ch.chapterNumber;
-    const chTitle = cleanExportText(ch.title || '').replace(/\n+/g, ' ').trim();
+    const chTitle = chapterName(n, ch.title);
     const body = cleanChapterContent(protectSceneBreaks(ch.content || ''), n, chTitle, title);
-    const tocTitle = chTitle ? `Chapter ${n}: ${chTitle}` : `Chapter ${n}`;
+    const tocTitle = chapterHeading(n, ch.title);
     const head = `<h1 class="chapter-head"><span class="chapter-label">Chapter ${n}</span>${
       chTitle ? `<span class="chapter-title">${esc(typeset(chTitle))}</span>` : ''
     }</h1>`;

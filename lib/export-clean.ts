@@ -186,6 +186,43 @@ export function cleanChapterContent(
   return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
+const NUMBER_WORDS = new Set(['one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen','twenty','thirty','forty','fifty']);
+
+// True when a chapter title carries no real name (empty, "Chapter 1", "Chapter One",
+// "Chapter I", "1", "Chapter 1:" ...), so exporters must not print it after "Chapter N".
+export function isPlaceholderChapterTitle(title: string | null | undefined, _chapterNumber?: number): boolean {
+  const t = cleanExportText(title || '').replace(/\n+/g, ' ').trim();
+  if (!t) return true;
+  const norm = normalizeHeading(t);
+  if (!norm) return true;
+  // Placeholder if every word is "chapter", a number, a number word, or a roman
+  // numeral directly after "chapter" (covers "Chapter 1", "Chapter 1: Chapter 1").
+  const words = norm.split(/[\s-]+/).filter(Boolean);
+  return words.every((w, i) =>
+    w === 'chapter' ||
+    /^\d{1,3}$/.test(w) ||
+    NUMBER_WORDS.has(w) ||
+    (i > 0 && words[i - 1] === 'chapter' && /^[ivxlcdm]{1,7}$/.test(w))
+  );
+}
+
+// Single source of truth for chapter headings in every export format.
+export function chapterHeading(chapterNumber: number, title?: string | null): string {
+  if (isPlaceholderChapterTitle(title, chapterNumber)) return `Chapter ${chapterNumber}`;
+  const clean = cleanExportText(title || '')
+    .replace(/\n+/g, ' ')
+    .replace(/^chapter\s+(?:\d{1,3}|[ivxlcdm]{1,7})\s*[:.\-–—]\s*/i, '')
+    .trim();
+  return clean ? `Chapter ${chapterNumber}: ${clean}` : `Chapter ${chapterNumber}`;
+}
+
+// The bare chapter name (no "Chapter N" prefix), or '' if it is only a placeholder.
+export function chapterName(chapterNumber: number, title?: string | null): string {
+  const h = chapterHeading(chapterNumber, title);
+  const prefix = `Chapter ${chapterNumber}: `;
+  return h.startsWith(prefix) ? h.slice(prefix.length) : '';
+}
+
 export interface ExportChapter {
   chapterNumber: number;
   title?: string;

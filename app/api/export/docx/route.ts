@@ -14,6 +14,7 @@ import {
   cleanExportText,
   cleanChapterContent,
   dedupeChapters,
+  chapterHeading,
 } from '@/lib/export-clean';
 
 interface ChapterInput {
@@ -82,9 +83,7 @@ function buildBookDoc(
       title
     );
     if (body) {
-      const headingText = chapter.title
-        ? `Chapter ${chapter.chapterNumber}: ${chapter.title}`
-        : `Chapter ${chapter.chapterNumber}`;
+      const headingText = chapterHeading(chapter.chapterNumber, chapter.title);
       children.push(
         new Paragraph({
           children: [

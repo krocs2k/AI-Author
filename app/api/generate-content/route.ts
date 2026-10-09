@@ -2,6 +2,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { routeLLMClient } from '@/lib/routellm';
 import { withNovelSystemBible } from '@/lib/routellm/config-loader';
+import { generateChapterTitle } from '@/lib/chapter-title';
+
+// Give a finished chapter a real name (e.g. "The Lantern at Low Tide") and persist it.
+async function nameAndSaveChapter(opts: { sessionId?: string; chapterNumber: any; content: string; bookTitle: string; genre: string }): Promise<string | null> {
+  const n = parseInt(opts.chapterNumber);
+  const chapterTitle = await generateChapterTitle({ bookTitle: opts.bookTitle, genre: opts.genre, chapterNumber: n, content: opts.content });
+  if (chapterTitle && opts.sessionId) {
+    try {
+      const { prisma } = await import('@/lib/db');
+      await prisma.chapter.updateMany({ where: { sessionId: opts.sessionId, chapterNumber: n }, data: { title: chapterTitle } });
+    } catch (e) {
+      console.error('Chapter title save failed:', e);
+    }
+  }
+  return chapterTitle;
+}
 
 // Enhanced word count calculation with better accuracy
 function calculateWordCount(text: string): number {
@@ -533,7 +549,9 @@ Write naturally and engagingly while staying close to the target word count.`;
         }
 
         const validation = validateWordCount(wordCount, wordTarget);
+        const chapterTitle = await nameAndSaveChapter({ sessionId, chapterNumber, content: fullContent, bookTitle: title, genre });
         return NextResponse.json({
+          chapterTitle,
           content: fullContent, wordCount, readTime: Math.ceil(wordCount / 250), humanizationScore, wordTarget,
           meetsWordCountRequirement: validation.meetsRequirement, wordCountCompliance: validation.compliance,
           wordCountStatus: validation.status, wordCountMessage: validation.message,
@@ -605,7 +623,10 @@ Write naturally and engagingly while staying close to the target word count.`;
         }
       }
 
+      const chapterTitle = await nameAndSaveChapter({ sessionId, chapterNumber, content, bookTitle: title, genre });
+
       return NextResponse.json({
+        chapterTitle,
         content,
         wordCount,
         readTime,

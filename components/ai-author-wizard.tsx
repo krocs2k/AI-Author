@@ -16,6 +16,7 @@ import { ContentCreation } from './wizard/content-creation';
 import { MarketingFinalization } from './wizard/marketing-finalization';
 import { CoverArt } from './wizard/cover-art';
 import { AnimatedProgress, PROGRESS_CONFIGS, ProgressStep } from './ui/animated-progress';
+import { isPlaceholderChapterTitle } from '@/lib/export-clean';
 import { calculateReadTime, generateHumanizationScore, generateSuccessProbability, simulateAnalysisDelay, downloadAsFile, downloadBookAsPDF, downloadBookAsDocx, downloadBookAsText, downloadBookAsEpub, downloadCharacterBibleAsDocx, downloadLocationBibleAsDocx } from '@/lib/utils';
 import { BOOK_GENRES } from '@/lib/genres';
 import { Button } from './ui/button';
@@ -1044,7 +1045,7 @@ export default function AIAuthorWizard() {
       const newChapter: Chapter = {
         id: `chapter-${chapterNumber}`,
         chapterNumber,
-        title: `Chapter ${chapterNumber}`,
+        title: content.chapterTitle || `Chapter ${chapterNumber}`,
         content: content.content,
         wordCount: content.wordCount,
         humanizationScore: content.humanizationScore || 95,
@@ -1115,12 +1116,44 @@ export default function AIAuthorWizard() {
     setIsLoading({});
   };
 
-  const handleDownloadEpub = async (withBackCopy: boolean) => {
+  // Older chapters were saved as just "Chapter N"; name them before exporting so
+  // headings read "Chapter N: Real Name". Falls back to plain "Chapter N" on failure.
+  const ensureChapterTitles = async (): Promise<Chapter[]> => {
+    const chapters = session.chapters || [];
+    const needsName = chapters.filter(c => (c.content || '').trim() && isPlaceholderChapterTitle(c.title, c.chapterNumber));
+    if (!needsName.length) return chapters;
+    try {
+      const res = await fetch('/api/chapter-titles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          bookTitle: session.selectedTitle || session.customTitle || '',
+          genre: session.selectedGenre || '',
+          chapters: needsName.map(c => ({ chapterNumber: c.chapterNumber, title: c.title, content: c.content })),
+        }),
+      });
+      if (!res.ok) throw new Error(`chapter-titles ${res.status}`);
+      const { titles } = (await res.json()) as { titles?: Record<number, string> };
+      if (!titles || !Object.keys(titles).length) return chapters;
+      const named = chapters.map(c => (titles[c.chapterNumber] ? { ...c, title: titles[c.chapterNumber] } : c));
+      setSession(prev => ({
+        ...prev,
+        chapters: (prev.chapters || []).map(c => (titles[c.chapterNumber] ? { ...c, title: titles[c.chapterNumber] } : c)),
+      }));
+      return named;
+    } catch (err) {
+      console.error('Chapter naming before export failed:', err);
+      return chapters;
+    }
+  };
+
+  const handleDownloadEpub = async (withBackCopy: boolean, namedChapters?: Chapter[]) => {
     const title = session.selectedTitle || session.customTitle || 'Untitled Book';
     const ok = await downloadBookAsEpub({
       title,
       forward: session.forward || '',
-      chapters: session.chapters || [],
+      chapters: namedChapters || (await ensureChapterTitles()),
       authorName: session.authorName || '',
       publishingInfo: session.publishingInfo || '',
       coverImageUrl: session.coverImageUrl || '',
@@ -1132,12 +1165,12 @@ export default function AIAuthorWizard() {
   const handleDownloadBook = async (format: 'pdf' | 'docx' | 'txt' | 'epub') => {
     const title = session.selectedTitle || session.customTitle || 'Untitled Book';
     const forward = session.forward || '';
-    const chapters = session.chapters || [];
+    const chapters = await ensureChapterTitles();
     
     // Use enhanced download functions based on format
     switch (format) {
       case 'epub':
-        await handleDownloadEpub(true);
+        await handleDownloadEpub(true, chapters);
         break;
       case 'pdf':
         await downloadBookAsPDF(title, forward, chapters);
@@ -1295,13 +1328,13 @@ export default function AIAuthorWizard() {
   const handleDownloadAll = async () => {
     const title = session.selectedTitle || session.customTitle || 'Untitled Book';
     const forward = session.forward || '';
-    const chapters = session.chapters || [];
+    const chapters = await ensureChapterTitles();
     
     // Download complete book with marketing materials in all formats
     await downloadBookAsPDF(title, forward, chapters, session.salesCopy, session.backCoverCopy);
     await downloadBookAsDocx(title, forward, chapters, session.salesCopy, session.backCoverCopy);
     downloadBookAsText(title, forward, chapters, session.salesCopy, session.backCoverCopy);
-    await handleDownloadEpub(true);
+    await handleDownloadEpub(true, chapters);
     
     // Download individual marketing assets
     if (session.coverPrompts) {

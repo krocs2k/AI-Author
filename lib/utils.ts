@@ -2,7 +2,7 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { Chapter, Character } from '@/lib/types'
-import { cleanExportText, cleanChapterContent, dedupeChapters } from '@/lib/export-clean'
+import { cleanExportText, cleanChapterContent, dedupeChapters, chapterHeading } from '@/lib/export-clean'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -148,9 +148,7 @@ export async function downloadBookAsPDF(
         title
       );
       if (body) {
-        const headingText = chapter.title
-          ? `Chapter ${chapter.chapterNumber}: ${chapter.title}`
-          : `Chapter ${chapter.chapterNumber}`;
+        const headingText = chapterHeading(chapter.chapterNumber, chapter.title);
         addTextToPDF(headingText, 14, true);
         yPosition += 5;
         addTextToPDF(body);
@@ -296,9 +294,7 @@ export function downloadBookAsText(
       title
     );
     if (body) {
-      const headingText = chapter.title
-        ? `Chapter ${chapter.chapterNumber}: ${chapter.title}`
-        : `Chapter ${chapter.chapterNumber}`;
+      const headingText = chapterHeading(chapter.chapterNumber, chapter.title);
       content += `${headingText}\n`;
       content += '-'.repeat(headingText.length) + '\n\n';
       content += body + '\n\n';
