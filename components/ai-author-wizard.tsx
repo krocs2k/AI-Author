@@ -16,7 +16,7 @@ import { ContentCreation } from './wizard/content-creation';
 import { MarketingFinalization } from './wizard/marketing-finalization';
 import { CoverArt } from './wizard/cover-art';
 import { AnimatedProgress, PROGRESS_CONFIGS, ProgressStep } from './ui/animated-progress';
-import { calculateReadTime, generateHumanizationScore, generateSuccessProbability, simulateAnalysisDelay, downloadAsFile, downloadBookAsPDF, downloadBookAsDocx, downloadBookAsText, downloadCharacterBibleAsDocx, downloadLocationBibleAsDocx } from '@/lib/utils';
+import { calculateReadTime, generateHumanizationScore, generateSuccessProbability, simulateAnalysisDelay, downloadAsFile, downloadBookAsPDF, downloadBookAsDocx, downloadBookAsText, downloadBookAsEpub, downloadCharacterBibleAsDocx, downloadLocationBibleAsDocx } from '@/lib/utils';
 import { BOOK_GENRES } from '@/lib/genres';
 import { Button } from './ui/button';
 import { BookOpen, LogOut, Shield, User, RotateCcw, FolderOpen, Save, Check, Loader2, CloudOff } from 'lucide-react';
@@ -1114,13 +1114,30 @@ export default function AIAuthorWizard() {
     setIsLoading({});
   };
 
-  const handleDownloadBook = async (format: 'pdf' | 'docx' | 'txt') => {
+  const handleDownloadEpub = async (withBackCopy: boolean) => {
+    const title = session.selectedTitle || session.customTitle || 'Untitled Book';
+    const ok = await downloadBookAsEpub({
+      title,
+      forward: session.forward || '',
+      chapters: session.chapters || [],
+      authorName: session.authorName || '',
+      publishingInfo: session.publishingInfo || '',
+      coverImageUrl: session.coverImageUrl || '',
+      backCoverCopy: withBackCopy ? session.backCoverCopy || '' : '',
+    });
+    if (!ok) alert('Sorry, the EPUB could not be generated. Please try again.');
+  };
+
+  const handleDownloadBook = async (format: 'pdf' | 'docx' | 'txt' | 'epub') => {
     const title = session.selectedTitle || session.customTitle || 'Untitled Book';
     const forward = session.forward || '';
     const chapters = session.chapters || [];
     
     // Use enhanced download functions based on format
     switch (format) {
+      case 'epub':
+        await handleDownloadEpub(true);
+        break;
       case 'pdf':
         await downloadBookAsPDF(title, forward, chapters);
         break;
@@ -1283,6 +1300,7 @@ export default function AIAuthorWizard() {
     await downloadBookAsPDF(title, forward, chapters, session.salesCopy, session.backCoverCopy);
     await downloadBookAsDocx(title, forward, chapters, session.salesCopy, session.backCoverCopy);
     downloadBookAsText(title, forward, chapters, session.salesCopy, session.backCoverCopy);
+    await handleDownloadEpub(true);
     
     // Download individual marketing assets
     if (session.coverPrompts) {

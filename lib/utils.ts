@@ -233,6 +233,37 @@ export async function downloadBookAsDocx(
   }
 }
 
+export interface EpubExportOptions {
+  title: string;
+  forward?: string;
+  chapters: Chapter[];
+  authorName?: string;
+  publishingInfo?: string;
+  coverImageUrl?: string;
+  backCoverCopy?: string;
+}
+
+// Builds a distribution-ready reflowable EPUB 3 (cover + linked Table of Contents) on the server.
+export async function downloadBookAsEpub(opts: EpubExportOptions): Promise<boolean> {
+  try {
+    const response = await fetch('/api/export/epub', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(opts),
+    });
+    if (!response.ok) {
+      throw new Error(`Server EPUB generation failed with status ${response.status}`);
+    }
+    const blob = await response.blob();
+    const safeTitle = (opts.title || 'book').replace(/[^a-zA-Z0-9]+/g, '_');
+    downloadBlob(blob, `${safeTitle}.epub`);
+    return true;
+  } catch (error) {
+    console.error('EPUB generation failed:', error);
+    return false;
+  }
+}
+
 export function downloadBookAsText(
   title: string,
   forward: string,

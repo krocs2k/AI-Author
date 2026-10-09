@@ -20,7 +20,7 @@ interface ContentCreationProps {
   onGenerateForward: () => void;
   onGenerateChapter: (chapterNumber: number) => void;
   onGenerateAllChapters: () => void;
-  onDownloadBook: (format: 'pdf' | 'docx' | 'txt') => void;
+  onDownloadBook: (format: 'pdf' | 'docx' | 'txt' | 'epub') => void;
   onNext: () => void;
   isLoading?: { [key: string]: boolean };
 }
@@ -339,7 +339,15 @@ export function ContentCreation({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4">
+            <Button
+              onClick={() => onDownloadBook('epub')}
+              disabled={generatedChapters === 0}
+              title="Reflowable EPUB 3 with cover and linked Table of Contents"
+            >
+              <BookOpen size={16} className="mr-2" />
+              Download EPUB
+            </Button>
             <Button
               variant="outline"
               onClick={() => onDownloadBook('pdf')}
