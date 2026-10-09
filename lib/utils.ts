@@ -56,10 +56,53 @@ export function downloadAsFile(content: string, filename: string, mimeType: stri
   downloadBlob(blob, filename);
 }
 
+// While set, downloadBlob() collects files here instead of downloading them,
+// so several exports can be bundled into one ZIP.
+let blobCollector: { name: string; blob: Blob }[] | null = null;
+
+export interface ZipEntry { name: string; blob: Blob }
+
+// Runs `task` and returns every file it would have downloaded (nothing is downloaded).
+export async function collectDownloads(task: () => Promise<void>): Promise<ZipEntry[]> {
+  const files: ZipEntry[] = [];
+  const previous = blobCollector;
+  blobCollector = files;
+  try {
+    await task();
+  } finally {
+    blobCollector = previous;
+  }
+  return files;
+}
+
+// Packages files into a single ZIP and downloads it. Duplicate names get a numeric suffix.
+export async function downloadFilesAsZip(files: ZipEntry[], zipName: string) {
+  const { default: JSZip } = await import('jszip');
+  const zip = new JSZip();
+  const used = new Set<string>();
+  for (const f of files) {
+    let name = f.name;
+    let i = 2;
+    while (used.has(name)) {
+      const dot = f.name.lastIndexOf('.');
+      name = dot > 0 ? `${f.name.slice(0, dot)}_${i}${f.name.slice(dot)}` : `${f.name}_${i}`;
+      i++;
+    }
+    used.add(name);
+    zip.file(name, f.blob);
+  }
+  const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+  downloadBlob(blob, zipName);
+}
+
 // Trigger a download of a Blob using a native anchor element.
 // Avoids depending on file-saver, whose dynamic import can resolve to
 // `undefined` in the minified production bundle ("saveAs is not a function").
 export function downloadBlob(blob: Blob, filename: string) {
+  if (blobCollector) {
+    blobCollector.push({ name: filename, blob });
+    return;
+  }
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -185,7 +228,7 @@ export async function downloadBookAsPDF(
 
     // Save the PDF
     const safeTitle = title.replace(/[^a-zA-Z0-9]/g, '_');
-    pdf.save(`${safeTitle}.pdf`);
+    downloadBlob(pdf.output('blob'), `${safeTitle}.pdf`);
 
   } catch (error) {
     console.error('PDF generation failed:', error);

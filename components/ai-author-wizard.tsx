@@ -17,7 +17,7 @@ import { MarketingFinalization } from './wizard/marketing-finalization';
 import { CoverArt } from './wizard/cover-art';
 import { AnimatedProgress, PROGRESS_CONFIGS, ProgressStep } from './ui/animated-progress';
 import { isPlaceholderChapterTitle } from '@/lib/export-clean';
-import { calculateReadTime, generateHumanizationScore, generateSuccessProbability, simulateAnalysisDelay, downloadAsFile, downloadBookAsPDF, downloadBookAsDocx, downloadBookAsText, downloadBookAsEpub, downloadCharacterBibleAsDocx, downloadLocationBibleAsDocx } from '@/lib/utils';
+import { calculateReadTime, generateHumanizationScore, generateSuccessProbability, simulateAnalysisDelay, downloadAsFile, downloadBookAsPDF, downloadBookAsDocx, downloadBookAsText, downloadBookAsEpub, downloadCharacterBibleAsDocx, downloadLocationBibleAsDocx, collectDownloads, downloadFilesAsZip } from '@/lib/utils';
 import { BOOK_GENRES } from '@/lib/genres';
 import { Button } from './ui/button';
 import { BookOpen, LogOut, Shield, User, RotateCcw, FolderOpen, Save, Check, Loader2, CloudOff } from 'lucide-react';
@@ -1325,12 +1325,41 @@ export default function AIAuthorWizard() {
     }
   };
 
+  // Builds every asset, then packages them all into ONE ZIP download.
   const handleDownloadAll = async () => {
+    if (isLoading.downloadAll) return;
+    setIsLoading(prev => ({ ...prev, downloadAll: true }));
     const title = session.selectedTitle || session.customTitle || 'Untitled Book';
+    const safeTitle = title.replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'Book';
+    try {
+      const files = await collectDownloads(() => buildAllAssets(title));
+      if (session.coverImageUrl) {
+        try {
+          const res = await fetch(session.coverImageUrl);
+          if (res.ok) {
+            const blob = await res.blob();
+            const ext = (blob.type.split('/')[1] || 'png').replace('jpeg', 'jpg').replace(/[^a-z0-9]/g, '') || 'png';
+            files.push({ name: `${safeTitle}_Cover.${ext}`, blob });
+          }
+        } catch (err) {
+          console.error('Cover image could not be added to ZIP:', err);
+        }
+      }
+      if (!files.length) throw new Error('No assets were generated');
+      await downloadFilesAsZip(files, `${safeTitle}_All_Assets.zip`);
+    } catch (error) {
+      console.error('Download All failed:', error);
+      alert('Sorry, the assets ZIP could not be created. Please try again.');
+    } finally {
+      setIsLoading(prev => ({ ...prev, downloadAll: false }));
+    }
+  };
+
+  const buildAllAssets = async (title: string) => {
     const forward = session.forward || '';
     const chapters = await ensureChapterTitles();
     
-    // Download complete book with marketing materials in all formats
+    // Complete book with marketing materials in all formats
     await downloadBookAsPDF(title, forward, chapters, session.salesCopy, session.backCoverCopy);
     await downloadBookAsDocx(title, forward, chapters, session.salesCopy, session.backCoverCopy);
     downloadBookAsText(title, forward, chapters, session.salesCopy, session.backCoverCopy);

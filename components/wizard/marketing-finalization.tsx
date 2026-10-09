@@ -306,9 +306,9 @@ export function MarketingFinalization({
           onClick={onDownloadAll}
           size="lg"
           className="px-8"
-          disabled={!coverPrompts && !salesCopy && !backCoverCopy}
+          disabled={(!coverPrompts && !salesCopy && !backCoverCopy) || isLoading?.downloadAll}
         >
-          Finish & Download All Assets
+          {isLoading?.downloadAll ? 'Packaging ZIP…' : 'Finish & Download All Assets'}
         </Button>
       </div>
     </div>
