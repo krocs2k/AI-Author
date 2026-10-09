@@ -94,6 +94,7 @@ export function ThemePicker({ className }: { className?: string }) {
   const select = (id: string) => {
     applyTheme(id);
     setCurrent(id);
+    setOpen(false);
   };
 
   return (
@@ -108,7 +109,7 @@ export function ThemePicker({ className }: { className?: string }) {
         <DialogHeader>
           <DialogTitle className="font-display text-2xl text-gold-gradient">Color Scheme</DialogTitle>
           <DialogDescription className="text-gray-400">
-            Choose a premium palette inspired by your genre. Changes apply instantly and are remembered on this device.
+            Choose a premium palette inspired by your genre. Click a theme to apply it instantly. Your choice is remembered on this device.
           </DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
