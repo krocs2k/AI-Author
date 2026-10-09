@@ -21,6 +21,7 @@ import { BOOK_GENRES } from '@/lib/genres';
 import { Button } from './ui/button';
 import { BookOpen, LogOut, Shield, User, RotateCcw, FolderOpen, Save, Check, Loader2, CloudOff } from 'lucide-react';
 import { SaveBookDialog } from '@/components/wizard/save-book-dialog';
+import { ThemePicker } from '@/components/theme-picker';
 
 const WIZARD_STEPS: WizardStep[] = [
   { id: 1, title: 'Genre', description: 'Select your book genre', completed: false },
@@ -1424,6 +1425,7 @@ export default function AIAuthorWizard() {
               <RotateCcw className="h-4 w-4 mr-2" />
               New Session
             </Button>
+            <ThemePicker />
             <Button
               variant="ghost"
               size="sm"

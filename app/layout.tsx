@@ -3,6 +3,7 @@ import { Inter, Lora, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { PWARegister } from "@/components/pwa-register";
+import { themeBootScript } from "@/lib/themes";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -56,8 +57,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootScript() }} />
         <script src="https://apps.abacus.ai/chatllm/appllm-lib.js"></script>
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />

@@ -25,6 +25,34 @@
     --input: 34 16% 20%;
     --ring: 42 55% 55%;
     --radius: 0.75rem;
+
+    /* Palette ramps (R G B) — default "Ink & Parchment"; other themes override these on <html> (lib/themes.ts) */
+    --c-gray-50: 251 247 239;
+    --c-gray-100: 244 236 220;
+    --c-gray-200: 230 217 191;
+    --c-gray-300: 205 189 155;
+    --c-gray-400: 169 154 124;
+    --c-gray-500: 127 114 96;
+    --c-gray-600: 85 76 63;
+    --c-gray-700: 59 51 42;
+    --c-gray-800: 38 32 25;
+    --c-gray-900: 26 21 16;
+    --c-gray-950: 17 13 9;
+    --c-teal-50: 251 243 224;
+    --c-teal-100: 246 231 193;
+    --c-teal-200: 239 215 155;
+    --c-teal-300: 230 199 122;
+    --c-teal-400: 217 180 102;
+    --c-teal-500: 140 100 31;
+    --c-teal-600: 111 79 24;
+    --c-teal-700: 94 67 28;
+    --c-teal-800: 74 53 22;
+    --c-teal-900: 47 34 16;
+    --glow: 217 180 102;
+    --glow-deep: 140 100 31;
+    --accent-light: 243 227 176;
+    --accent-mid: 196 154 70;
+    --bg-base: #1a1510;
   }
 
   * {
@@ -34,11 +62,11 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-inter), system-ui, sans-serif;
-    background-color: #1a1510;
+    background-color: var(--bg-base);
     background-image:
-      radial-gradient(1200px 600px at 15% -10%, rgba(217, 180, 102, 0.07), transparent 60%),
-      radial-gradient(900px 500px at 100% 0%, rgba(217, 180, 102, 0.05), transparent 55%),
-      radial-gradient(700px 700px at 50% 120%, rgba(140, 100, 31, 0.06), transparent 60%);
+      radial-gradient(1200px 600px at 15% -10%, rgb(var(--glow) / 0.07), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgb(var(--glow) / 0.05), transparent 55%),
+      radial-gradient(700px 700px at 50% 120%, rgb(var(--glow-deep) / 0.06), transparent 60%);
     background-attachment: fixed;
   }
 
@@ -58,7 +86,7 @@
 
   /* Gilded gold text */
   .text-gold-gradient {
-    background-image: linear-gradient(100deg, #e6c77a 0%, #d9b466 35%, #f3e3b0 55%, #c49a46 85%);
+    background-image: linear-gradient(100deg, rgb(var(--c-teal-300)) 0%, rgb(var(--c-teal-400)) 35%, rgb(var(--accent-light)) 55%, rgb(var(--accent-mid)) 85%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -66,17 +94,17 @@
 
   /* Subtle elevated glass surface */
   .surface-glass {
-    background: linear-gradient(180deg, rgba(38, 32, 25, 0.85), rgba(26, 21, 16, 0.75));
+    background: linear-gradient(180deg, rgb(var(--c-gray-800) / 0.85), rgb(var(--c-gray-900) / 0.75));
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(217, 180, 102, 0.12);
+    border: 1px solid rgb(var(--glow) / 0.12);
   }
 
   .ring-gold {
-    box-shadow: 0 0 0 1px rgba(217, 180, 102, 0.25), 0 10px 40px -12px rgba(0, 0, 0, 0.6);
+    box-shadow: 0 0 0 1px rgb(var(--glow) / 0.25), 0 10px 40px -12px rgba(0, 0, 0, 0.6);
   }
 
   .hairline-gold {
-    border-image: linear-gradient(90deg, transparent, rgba(217, 180, 102, 0.5), transparent) 1;
+    border-image: linear-gradient(90deg, transparent, rgb(var(--glow) / 0.5), transparent) 1;
   }
 
   .animate-count-up {
@@ -95,21 +123,21 @@
   height: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: #1a1510;
+  background: rgb(var(--c-gray-900));
 }
 ::-webkit-scrollbar-thumb {
-  background: #554c3f;
+  background: rgb(var(--c-gray-600));
   border-radius: 6px;
-  border: 2px solid #1a1510;
+  border: 2px solid rgb(var(--c-gray-900));
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #8c641f;
+  background: rgb(var(--c-teal-500));
 }
 
 /* Text selection */
 ::selection {
-  background-color: rgba(217, 180, 102, 0.3);
-  color: #f4ecdc;
+  background-color: rgb(var(--glow) / 0.3);
+  color: rgb(var(--c-gray-100));
 }
 
 .transition-all {
@@ -136,7 +164,7 @@
 
 /* Welcome splash shimmer sweep */
 .splash-shimmer {
-  background: linear-gradient(90deg, transparent, rgba(243, 227, 176, 0.55), transparent);
+  background: linear-gradient(90deg, transparent, rgb(var(--accent-light) / 0.55), transparent);
   background-size: 200% 100%;
   animation: shimmer 2.4s linear infinite;
 }

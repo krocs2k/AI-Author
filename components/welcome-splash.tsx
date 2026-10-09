@@ -31,7 +31,7 @@ export function WelcomeSplash({ duration = 6000, name, onFinish }: WelcomeSplash
           exit={{ opacity: 0 }}
           transition={{ duration: 0.7, ease: 'easeInOut' }}
           className="fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden"
-          style={{ backgroundColor: '#1a1510' }}
+          style={{ backgroundColor: 'var(--bg-base)' }}
           aria-label="Welcome"
           role="status"
         >
@@ -40,7 +40,7 @@ export function WelcomeSplash({ duration = 6000, name, onFinish }: WelcomeSplash
             className="pointer-events-none absolute inset-0"
             style={{
               backgroundImage:
-                'radial-gradient(60% 50% at 50% 40%, rgba(217,180,102,0.14), transparent 70%), radial-gradient(40% 40% at 50% 100%, rgba(140,100,31,0.12), transparent 70%)',
+                'radial-gradient(60% 50% at 50% 40%, rgb(var(--glow) / 0.14), transparent 70%), radial-gradient(40% 40% at 50% 100%, rgb(var(--glow-deep) / 0.12), transparent 70%)',
             }}
           />
           {/* Vignette */}
@@ -58,7 +58,7 @@ export function WelcomeSplash({ duration = 6000, name, onFinish }: WelcomeSplash
             >
               <div
                 className="absolute inset-0 rounded-full blur-2xl"
-                style={{ background: 'radial-gradient(circle, rgba(217,180,102,0.35), transparent 70%)' }}
+                style={{ background: 'radial-gradient(circle, rgb(var(--glow) / 0.35), transparent 70%)' }}
               />
               <motion.div
                 animate={{ y: [0, -8, 0] }}
@@ -110,7 +110,7 @@ export function WelcomeSplash({ duration = 6000, name, onFinish }: WelcomeSplash
                 animate={{ width: '100%' }}
                 transition={{ duration: duration / 1000, ease: 'easeInOut' }}
                 className="absolute inset-y-0 left-0 rounded-full"
-                style={{ background: 'linear-gradient(90deg, #8c641f, #d9b466, #f3e3b0)' }}
+                style={{ background: 'linear-gradient(90deg, rgb(var(--glow-deep)), rgb(var(--glow)), rgb(var(--accent-light)))' }}
               />
               <div className="splash-shimmer absolute inset-0" />
             </div>
