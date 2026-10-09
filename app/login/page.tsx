@@ -4,10 +4,11 @@ import { useState, useEffect, Suspense } from 'react';
 import { signIn, getProviders } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { BookOpen, Mail, Lock, Chrome, Clock } from 'lucide-react';
+import { Mail, Lock, Chrome, Clock } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 function LoginContent() {
@@ -27,7 +28,7 @@ function LoginContent() {
         setGoogleEnabled(true);
       }
     });
-    
+
     // Check for pending approval error from URL (Google SSO redirect)
     const urlError = searchParams.get('error');
     if (urlError === 'ACCOUNT_PENDING_APPROVAL') {
@@ -55,6 +56,12 @@ function LoginContent() {
           setError('Invalid email or password');
         }
       } else {
+        // Trigger the welcome splash on the dashboard after a successful login
+        try {
+          sessionStorage.setItem('aa_welcome', '1');
+        } catch (e) {
+          /* sessionStorage unavailable - splash will be skipped */
+        }
         router.replace('/dashboard');
       }
     } catch (err) {
@@ -65,20 +72,28 @@ function LoginContent() {
   };
 
   const handleGoogleSignIn = () => {
-    signIn('google', { callbackUrl: '/dashboard' });
+    signIn('google', { callbackUrl: '/dashboard?welcome=1' });
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md bg-gray-800/50 border-gray-700 backdrop-blur-sm">
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <Card className="w-full max-w-md surface-glass ring-gold">
         <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <div className="p-3 bg-teal-500/20 rounded-full">
-              <BookOpen className="h-8 w-8 text-teal-400" />
+          <div className="flex justify-center mb-5">
+            <div className="relative">
+              <div className="absolute inset-0 rounded-2xl blur-xl bg-teal-400/25" />
+              <Image
+                src="/icon-192.png"
+                alt="AI Author"
+                width={64}
+                height={64}
+                priority
+                className="relative h-16 w-16 rounded-2xl shadow-gold"
+              />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold text-white">Welcome Back</CardTitle>
-          <CardDescription className="text-gray-400">Sign in to continue to AI Author</CardDescription>
+          <CardTitle className="font-display text-3xl font-bold text-gray-50">Welcome Back</CardTitle>
+          <CardDescription className="font-serif text-base text-gray-400">Sign in to continue to AI Author</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -107,7 +122,7 @@ function LoginContent() {
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 bg-gray-700/50 border-gray-600 text-white placeholder:text-gray-500"
+                  className="pl-10 bg-gray-700/40 border-gray-600 text-white placeholder:text-gray-500"
                   required
                 />
               </div>
@@ -121,7 +136,7 @@ function LoginContent() {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 bg-gray-700/50 border-gray-600 text-white placeholder:text-gray-500"
+                  className="pl-10 bg-gray-700/40 border-gray-600 text-white placeholder:text-gray-500"
                   required
                 />
               </div>
@@ -129,7 +144,7 @@ function LoginContent() {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full bg-teal-500 hover:bg-teal-600 text-white"
+              className="w-full"
             >
               {loading ? 'Signing in...' : 'Sign In'}
             </Button>
@@ -139,17 +154,17 @@ function LoginContent() {
             <>
               <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-gray-600" />
+                  <span className="w-full border-t border-gray-600/70" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-gray-800 px-2 text-gray-400">Or continue with</span>
+                  <span className="bg-gray-800 px-2 text-gray-400 tracking-wider">Or continue with</span>
                 </div>
               </div>
               <Button
                 type="button"
                 variant="outline"
                 onClick={handleGoogleSignIn}
-                className="w-full border-gray-600 bg-gray-700/50 text-white hover:bg-gray-700"
+                className="w-full"
               >
                 <Chrome className="mr-2 h-4 w-4" />
                 Google
@@ -160,7 +175,7 @@ function LoginContent() {
         <CardFooter className="flex justify-center">
           <p className="text-sm text-gray-400">
             Don't have an account?{' '}
-            <Link href="/register" className="text-teal-400 hover:text-teal-300">
+            <Link href="/register" className="text-teal-400 hover:text-teal-300 font-medium">
               Sign up
             </Link>
           </p>
@@ -173,7 +188,7 @@ function LoginContent() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner />
       </div>
     }>

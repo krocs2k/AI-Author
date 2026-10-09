@@ -1,14 +1,20 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
-import { useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useRef, useState, Suspense } from 'react';
 import AIAuthorWizard from '@/components/ai-author-wizard';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { WelcomeSplash } from '@/components/welcome-splash';
 
-export default function DashboardPage() {
+function DashboardContent() {
   const { data: session, status } = useSession() || {};
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [showSplash, setShowSplash] = useState(false);
+  // Ref guard survives React Strict Mode's double-invoked effect so the
+  // one-shot welcome flag isn't consumed twice (which would hide the splash).
+  const decidedRef = useRef(false);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -16,9 +22,35 @@ export default function DashboardPage() {
     }
   }, [status, router]);
 
+  // Decide whether to show the welcome splash once, on arrival after login.
+  useEffect(() => {
+    if (decidedRef.current) return;
+    if (status !== 'authenticated') return;
+    decidedRef.current = true;
+
+    let shouldShow = false;
+    try {
+      if (sessionStorage.getItem('aa_welcome') === '1') {
+        shouldShow = true;
+        sessionStorage.removeItem('aa_welcome');
+      }
+    } catch (e) {
+      /* sessionStorage unavailable */
+    }
+    if (searchParams.get('welcome') === '1') {
+      shouldShow = true;
+      // Clean the query param from the URL without a reload
+      router.replace('/dashboard');
+    }
+
+    if (shouldShow) {
+      setShowSplash(true);
+    }
+  }, [status, searchParams, router]);
+
   if (status === 'loading') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner />
       </div>
     );
@@ -29,8 +61,23 @@ export default function DashboardPage() {
   }
 
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center"><LoadingSpinner /></div>}>
+    <>
+      {showSplash && (
+        <WelcomeSplash
+          name={session.user?.name}
+          duration={6000}
+          onFinish={() => setShowSplash(false)}
+        />
+      )}
       <AIAuthorWizard />
+    </>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><LoadingSpinner /></div>}>
+      <DashboardContent />
     </Suspense>
   );
 }

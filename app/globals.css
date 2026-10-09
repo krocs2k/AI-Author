@@ -1,30 +1,30 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 160 84% 39%;
-    --primary-foreground: 355 7% 97%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 160 84% 39%;
-    --radius: 0.5rem;
+    /* Warm "ink & parchment" premium theme */
+    --background: 34 25% 9%;
+    --foreground: 40 45% 90%;
+    --card: 34 23% 12%;
+    --card-foreground: 40 45% 90%;
+    --popover: 34 24% 10%;
+    --popover-foreground: 40 45% 90%;
+    --primary: 42 60% 63%;
+    --primary-foreground: 34 40% 10%;
+    --secondary: 34 16% 19%;
+    --secondary-foreground: 40 42% 88%;
+    --muted: 34 16% 19%;
+    --muted-foreground: 38 18% 60%;
+    --accent: 42 45% 24%;
+    --accent-foreground: 42 60% 80%;
+    --destructive: 0 62% 42%;
+    --destructive-foreground: 40 45% 95%;
+    --border: 34 16% 20%;
+    --input: 34 16% 20%;
+    --ring: 42 55% 55%;
+    --radius: 0.75rem;
   }
 
   * {
@@ -34,118 +34,117 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-inter), system-ui, sans-serif;
+    background-color: #1a1510;
+    background-image:
+      radial-gradient(1200px 600px at 15% -10%, rgba(217, 180, 102, 0.07), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgba(217, 180, 102, 0.05), transparent 55%),
+      radial-gradient(700px 700px at 50% 120%, rgba(140, 100, 31, 0.06), transparent 60%);
+    background-attachment: fixed;
   }
 
-  .font-serif {
-    font-family: var(--font-lora), serif;
+  h1, h2, h3, h4, h5 {
+    font-feature-settings: 'ss01', 'liga', 'kern';
   }
 }
 
 @layer components {
+  .font-display {
+    font-family: var(--font-display), Georgia, serif;
+  }
+
+  .font-serif {
+    font-family: var(--font-lora), Georgia, serif;
+  }
+
+  /* Gilded gold text */
+  .text-gold-gradient {
+    background-image: linear-gradient(100deg, #e6c77a 0%, #d9b466 35%, #f3e3b0 55%, #c49a46 85%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Subtle elevated glass surface */
+  .surface-glass {
+    background: linear-gradient(180deg, rgba(38, 32, 25, 0.85), rgba(26, 21, 16, 0.75));
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(217, 180, 102, 0.12);
+  }
+
+  .ring-gold {
+    box-shadow: 0 0 0 1px rgba(217, 180, 102, 0.25), 0 10px 40px -12px rgba(0, 0, 0, 0.6);
+  }
+
+  .hairline-gold {
+    border-image: linear-gradient(90deg, transparent, rgba(217, 180, 102, 0.5), transparent) 1;
+  }
+
   .animate-count-up {
     animation: countUp 2s ease-out;
   }
 
   @keyframes countUp {
-    from {
-      opacity: 0;
-      transform: scale(0.8);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1);
-    }
+    from { opacity: 0; transform: scale(0.8); }
+    to { opacity: 1; transform: scale(1); }
   }
 }
 
-/* Custom scrollbar for dark theme */
+/* Custom scrollbar — warm theme */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
-
 ::-webkit-scrollbar-track {
-  background: #1f2937;
-  border-radius: 4px;
+  background: #1a1510;
 }
-
 ::-webkit-scrollbar-thumb {
-  background: #4b5563;
-  border-radius: 4px;
+  background: #554c3f;
+  border-radius: 6px;
+  border: 2px solid #1a1510;
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  background: #6b7280;
+  background: #8c641f;
 }
 
 /* Text selection */
 ::selection {
-  background-color: #2dd4bf;
-  color: #1f2937;
+  background-color: rgba(217, 180, 102, 0.3);
+  color: #f4ecdc;
 }
 
-/* Focus styles */
-.focus-visible\:ring-teal-400:focus-visible {
-  --tw-ring-color: #2dd4bf;
-}
-
-/* Smooth transitions for interactive elements */
 .transition-all {
   transition-property: all;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 150ms;
+  transition-duration: 200ms;
 }
 
-/* Loading animation improvements */
 .animate-spin {
   animation: spin 1s linear infinite;
 }
-
 @keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
-/* Card hover effects */
-.hover\:scale-105:hover {
-  transform: scale(1.05);
-}
-
-.hover\:scale-\[1\.02\]:hover {
-  transform: scale(1.02);
-}
-
-/* Progress bar styling */
-.bg-teal-400 {
-  background-color: #2dd4bf;
-}
-
-.bg-teal-500 {
-  background-color: #14b8a6;
-}
-
-.bg-teal-600 {
-  background-color: #0d9488;
-}
-
-.text-teal-400 {
-  color: #2dd4bf;
-}
-
-.border-teal-500 {
-  border-color: #14b8a6;
-}
-
-/* Dark theme overrides */
 .dark {
   color-scheme: dark;
 }
 
-/* Backdrop blur support */
 .backdrop-blur {
   backdrop-filter: blur(8px);
+}
+
+/* Welcome splash shimmer sweep */
+.splash-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(243, 227, 176, 0.55), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 2.4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
