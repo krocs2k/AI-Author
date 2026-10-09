@@ -10,14 +10,20 @@ import {
   HeadingLevel,
   AlignmentType,
 } from 'docx';
+import {
+  cleanExportText,
+  cleanChapterContent,
+  dedupeChapters,
+} from '@/lib/export-clean';
 
 interface ChapterInput {
   chapterNumber: number;
+  title?: string;
   content?: string | null;
 }
 
 function buildParagraphs(text: string, size = 24): Paragraph[] {
-  return text
+  return cleanExportText(text)
     .split('\n')
     .filter((p) => p.trim())
     .map(
@@ -55,7 +61,8 @@ function buildBookDoc(
   );
 
   // Forward/Introduction
-  if (forward) {
+  const cleanForward = cleanChapterContent(forward, undefined, undefined, title);
+  if (cleanForward) {
     children.push(
       new Paragraph({
         children: [new TextRun({ text: 'FORWARD', bold: true, size: 32 })],
@@ -63,17 +70,26 @@ function buildBookDoc(
         spacing: { after: 200 },
       })
     );
-    children.push(...buildParagraphs(forward));
+    children.push(...buildParagraphs(cleanForward));
   }
 
-  // Chapters
-  (chapters || []).forEach((chapter) => {
-    if (chapter.content) {
+  // Chapters (de-duplicated by number, markup stripped, duplicate headings removed)
+  dedupeChapters(chapters || []).forEach((chapter) => {
+    const body = cleanChapterContent(
+      chapter.content,
+      chapter.chapterNumber,
+      chapter.title,
+      title
+    );
+    if (body) {
+      const headingText = chapter.title
+        ? `Chapter ${chapter.chapterNumber}: ${chapter.title}`
+        : `Chapter ${chapter.chapterNumber}`;
       children.push(
         new Paragraph({
           children: [
             new TextRun({
-              text: `Chapter ${chapter.chapterNumber}`,
+              text: headingText,
               bold: true,
               size: 28,
             }),
@@ -82,7 +98,7 @@ function buildBookDoc(
           spacing: { before: 400, after: 200 },
         })
       );
-      children.push(...buildParagraphs(chapter.content));
+      children.push(...buildParagraphs(body));
     }
   });
 
@@ -153,12 +169,13 @@ interface CharacterInput {
 }
 
 function labeledParagraph(label: string, value?: string): Paragraph[] {
-  if (!value || !value.trim()) return [];
+  const clean = cleanExportText(value).replace(/\n+/g, ' ').trim();
+  if (!clean) return [];
   return [
     new Paragraph({
       children: [
         new TextRun({ text: `${label}: `, bold: true, size: 24 }),
-        new TextRun({ text: value, size: 24 }),
+        new TextRun({ text: clean, size: 24 }),
       ],
       spacing: { after: 120 },
     }),
@@ -178,12 +195,15 @@ function sectionParagraph(label: string, value?: string): Paragraph[] {
 
 function listParagraph(label: string, items?: string[] | string): Paragraph[] {
   const arr = Array.isArray(items) ? items : items ? [items] : [];
-  if (arr.length === 0) return [];
+  const cleanArr = arr
+    .map((it) => cleanExportText(it).replace(/\n+/g, ' ').trim())
+    .filter(Boolean);
+  if (cleanArr.length === 0) return [];
   return [
     new Paragraph({
       children: [
         new TextRun({ text: `${label}: `, bold: true, size: 24 }),
-        new TextRun({ text: arr.filter(Boolean).join(', '), size: 24 }),
+        new TextRun({ text: cleanArr.join(', '), size: 24 }),
       ],
       spacing: { after: 120 },
     }),

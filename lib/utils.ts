@@ -2,6 +2,7 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { Chapter, Character } from '@/lib/types'
+import { cleanExportText, cleanChapterContent, dedupeChapters } from '@/lib/export-clean'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -129,45 +130,58 @@ export async function downloadBookAsPDF(
     yPosition = margin;
 
     // Forward/Introduction
-    if (forward) {
+    const cleanForward = cleanChapterContent(forward, undefined, undefined, title);
+    if (cleanForward) {
       addTextToPDF('FORWARD', 16, true);
       yPosition += 5;
-      addTextToPDF(forward);
+      addTextToPDF(cleanForward);
       yPosition += 10;
     }
 
-    // Chapters
-    chapters.forEach((chapter, index) => {
-      if (chapter.content) {
-        addTextToPDF(`Chapter ${chapter.chapterNumber}`, 14, true);
+    // Chapters (de-duplicated, markup stripped, duplicate headings removed)
+    const pdfChapters = dedupeChapters(chapters || []);
+    pdfChapters.forEach((chapter, index) => {
+      const body = cleanChapterContent(
+        chapter.content,
+        chapter.chapterNumber,
+        chapter.title,
+        title
+      );
+      if (body) {
+        const headingText = chapter.title
+          ? `Chapter ${chapter.chapterNumber}: ${chapter.title}`
+          : `Chapter ${chapter.chapterNumber}`;
+        addTextToPDF(headingText, 14, true);
         yPosition += 5;
-        addTextToPDF(chapter.content);
-        
+        addTextToPDF(body);
+
         // Add extra space between chapters
-        if (index < chapters.length - 1) {
+        if (index < pdfChapters.length - 1) {
           yPosition += 10;
         }
       }
     });
 
     // Marketing materials as appendix
-    if (salesCopy || backCoverCopy) {
+    const cleanSalesCopy = cleanExportText(salesCopy);
+    const cleanBackCoverCopy = cleanExportText(backCoverCopy);
+    if (cleanSalesCopy || cleanBackCoverCopy) {
       pdf.addPage();
       yPosition = margin;
       addTextToPDF('MARKETING MATERIALS', 16, true);
       yPosition += 10;
 
-      if (salesCopy) {
+      if (cleanSalesCopy) {
         addTextToPDF('Sales Copy', 14, true);
         yPosition += 5;
-        addTextToPDF(salesCopy);
+        addTextToPDF(cleanSalesCopy);
         yPosition += 10;
       }
 
-      if (backCoverCopy) {
+      if (cleanBackCoverCopy) {
         addTextToPDF('Back Cover Copy', 14, true);
         yPosition += 5;
-        addTextToPDF(backCoverCopy);
+        addTextToPDF(cleanBackCoverCopy);
       }
     }
 
@@ -233,43 +247,56 @@ export function downloadBookAsText(
   content += '='.repeat(title.length) + '\n\n';
 
   // Forward/Introduction
-  if (forward) {
+  const cleanForward = cleanChapterContent(forward, undefined, undefined, title);
+  if (cleanForward) {
     content += 'FORWARD\n';
     content += '-------\n\n';
-    content += forward + '\n\n';
+    content += cleanForward + '\n\n';
     content += '\n'.repeat(3);
   }
 
-  // Chapters
-  chapters.forEach((chapter, index) => {
-    if (chapter.content) {
-      content += `Chapter ${chapter.chapterNumber}\n`;
-      content += '-'.repeat(`Chapter ${chapter.chapterNumber}`.length) + '\n\n';
-      content += chapter.content + '\n\n';
-      
+  // Chapters (de-duplicated, markup stripped, duplicate headings removed)
+  const textChapters = dedupeChapters(chapters || []);
+  textChapters.forEach((chapter, index) => {
+    const body = cleanChapterContent(
+      chapter.content,
+      chapter.chapterNumber,
+      chapter.title,
+      title
+    );
+    if (body) {
+      const headingText = chapter.title
+        ? `Chapter ${chapter.chapterNumber}: ${chapter.title}`
+        : `Chapter ${chapter.chapterNumber}`;
+      content += `${headingText}\n`;
+      content += '-'.repeat(headingText.length) + '\n\n';
+      content += body + '\n\n';
+
       // Add space between chapters
-      if (index < chapters.length - 1) {
+      if (index < textChapters.length - 1) {
         content += '\n'.repeat(2);
       }
     }
   });
 
   // Marketing materials
-  if (salesCopy || backCoverCopy) {
+  const cleanSalesCopy = cleanExportText(salesCopy);
+  const cleanBackCoverCopy = cleanExportText(backCoverCopy);
+  if (cleanSalesCopy || cleanBackCoverCopy) {
     content += '\n'.repeat(3);
     content += 'MARKETING MATERIALS\n';
     content += '==================\n\n';
 
-    if (salesCopy) {
+    if (cleanSalesCopy) {
       content += 'Sales Copy\n';
       content += '----------\n\n';
-      content += salesCopy + '\n\n';
+      content += cleanSalesCopy + '\n\n';
     }
 
-    if (backCoverCopy) {
+    if (cleanBackCoverCopy) {
       content += 'Back Cover Copy\n';
       content += '---------------\n\n';
-      content += backCoverCopy + '\n\n';
+      content += cleanBackCoverCopy + '\n\n';
     }
   }
 
@@ -344,14 +371,14 @@ export async function downloadCharacterBibleAsDocx(
       if (c.gender) text += `Gender: ${c.gender}\n`;
       if (c.occupation) text += `Occupation: ${c.occupation}\n`;
       if (c.voiceStyle) text += `Voice / Dialogue Style: ${c.voiceStyle}\n`;
-      if (c.physicalDescription) text += `\nPhysical Description:\n${c.physicalDescription}\n`;
+      if (c.physicalDescription) text += `\nPhysical Description:\n${cleanExportText(c.physicalDescription)}\n`;
       if (c.personality?.length) text += `\nPersonality: ${c.personality.join(', ')}\n`;
       if (c.keyTraits?.length) text += `Key Traits: ${c.keyTraits.join(', ')}\n`;
       if (c.strengths?.length) text += `Strengths: ${c.strengths.join(', ')}\n`;
       if (c.flaws?.length) text += `Flaws: ${c.flaws.join(', ')}\n`;
-      if (c.backstory) text += `\nBackstory:\n${c.backstory}\n`;
-      if (c.motivation) text += `\nMotivation:\n${c.motivation}\n`;
-      if (c.arc) text += `\nCharacter Arc:\n${c.arc}\n`;
+      if (c.backstory) text += `\nBackstory:\n${cleanExportText(c.backstory)}\n`;
+      if (c.motivation) text += `\nMotivation:\n${cleanExportText(c.motivation)}\n`;
+      if (c.arc) text += `\nCharacter Arc:\n${cleanExportText(c.arc)}\n`;
       if (c.relationships?.length) {
         text += `\nRelationships:\n`;
         c.relationships.forEach((r) => {
@@ -402,9 +429,9 @@ export async function downloadLocationBibleAsDocx(
     (locations || []).forEach((l) => {
       text += `${l.name || 'Unnamed'}\n${'-'.repeat((l.name || 'Unnamed').length)}\n`;
       if (l.type) text += `Type: ${l.type}\n`;
-      if (l.description) text += `\nDescription:\n${l.description}\n`;
-      if (l.atmosphere) text += `\nAtmosphere:\n${l.atmosphere}\n`;
-      if (l.significance) text += `\nSignificance to the Story:\n${l.significance}\n`;
+      if (l.description) text += `\nDescription:\n${cleanExportText(l.description)}\n`;
+      if (l.atmosphere) text += `\nAtmosphere:\n${cleanExportText(l.atmosphere)}\n`;
+      if (l.significance) text += `\nSignificance to the Story:\n${cleanExportText(l.significance)}\n`;
       text += `\n\n`;
     });
     downloadAsFile(text, `${safeTitle}_Location_Bible.txt`, 'text/plain');
