@@ -464,4 +464,4 @@ export const BOOK_GENRES: Genre[] = [
     description: 'Coming-of-age stories for teens',
     icon: 'Star'
   }
-];
+].sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
